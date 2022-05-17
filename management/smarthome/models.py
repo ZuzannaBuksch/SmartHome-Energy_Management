@@ -2,7 +2,7 @@ from django.db import models
 from django.core.validators import MaxValueValidator
 from polymorphic.models import PolymorphicModel
 from users.models import User
-
+from jsonfield import JSONField
 
 class Building(models.Model):
     name = models.CharField(max_length=100, null=True)
@@ -69,13 +69,31 @@ class EnergyStorage(Device):
         return f"Energy storing device: {str(self.id)} | name: {self.name}"
 
 
-class EnergyMeasurement(models.Model):
-    date = models.DateField(auto_now=False, null=False)
+class EnergyDailyMeasurement(models.Model):
+    datetime = models.DateTimeField(auto_now=False, null=False)
     energy_value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
     calculated_price = models.DecimalField(max_digits=20, decimal_places=10, null=False)
     energy_source = models.CharField(max_length=100, null=False)
     device = models.ForeignKey(
-        Device, on_delete=models.CASCADE, related_name="device_measurement"
+        Device, on_delete=models.CASCADE, related_name="device_daily_measurements"
+    )
+
+    class Meta:
+        unique_together = (
+            "device",
+            "datetime",
+        )
+
+    def __str__(self):
+        return f"Measurement: {str(self.id)} | device: {self.device.name} | date: {self.datetime}"
+
+class EnergyMeasurement(models.Model):
+    date = models.DateField(auto_now=False, null=False)
+    energy_value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
+    calculated_price = models.DecimalField(max_digits=20, decimal_places=10, null=False)
+    energy_sources_percentage = JSONField(null=False)
+    device = models.ForeignKey(
+        Device, on_delete=models.CASCADE, related_name="device_measurements"
     )
 
     class Meta:

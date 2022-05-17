@@ -20,3 +20,4 @@ starlette==0.20.0
 requests-toolbelt==0.9.1
 requests_cache
 django-rest-polymorphic==0.1.9
+jsonfield
