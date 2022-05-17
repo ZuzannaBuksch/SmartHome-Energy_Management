@@ -1,7 +1,7 @@
 from copy import deepcopy
 from datetime import datetime, timedelta, time
 import json
-from services.smart_home import SmartHomeEnergyGenerator, SmartHomeEnergyReceiver, SmartHomeEnergyStorage, SmartHomeDevice
+from services.smart_home import SmartHomeEnergyGenerator, SmartHomeEnergyReceiver, SmartHomeEnergyStorage, SmartHomeDevice, SmartHomeDeviceRaport
 from users.models import User
 from rest_framework import viewsets, generics, status, mixins
 from rest_framework.permissions import AllowAny
@@ -270,3 +270,4 @@ class BuildingDevicesView(generics.ListAPIView):
                 
         resp = smart_building.push_devices(smart_devices)
         return Response(resp.json(), status=resp.status_code)
+        
