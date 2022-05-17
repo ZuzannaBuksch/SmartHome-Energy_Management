@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Building, Room, Device, EnergyGenerator, EnergyReceiver, EnergyStorage, Floor, EnergyMeasurement
+from .models import Building, Room, Device, EnergyGenerator, EnergyReceiver, EnergyStorage, Floor, EnergyDailyMeasurement
 from rest_polymorphic.serializers import PolymorphicSerializer
 from django.utils.functional import lazy
 
@@ -81,9 +81,9 @@ class BuildingListSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class EnergyMeasurementSerializer(serializers.ModelSerializer):
+class EnergyDailyMeasurementSerializer(serializers.ModelSerializer):
     class Meta:
-        model = EnergyMeasurement
+        model = EnergyDailyMeasurement
         fields = "__all__"
 
 class BuildingIdSerializer(serializers.ModelSerializer):
@@ -92,7 +92,7 @@ class BuildingIdSerializer(serializers.ModelSerializer):
         fields = ("id", )
 
 
-class EnergyMeasurementViewSerializer(serializers.Serializer):
+class EnergyDailyMeasurementViewSerializer(serializers.Serializer):
     start_date = serializers.DateField(format="%Y-%m-%d", input_formats=['%Y-%m-%d'])
     end_date = serializers.DateField(format="%Y-%m-%d", input_formats=['%Y-%m-%d'], required=False)
     building = serializers.PrimaryKeyRelatedField(queryset=Building.objects.all())

@@ -12,7 +12,6 @@ from .smart_device import SmartHomeDevice
 from .smart_object import SmartHomeObject
 
 from smarthome.models import Device
-from smarthome.price_classifier import decide_energy_prices
 
 class SmartHomeBuilding(SmartHomeObject):
     """Class that provides methods for requesting SmartHome building selected data"""
@@ -77,7 +76,6 @@ class SmartHomeBuilding(SmartHomeObject):
                 })
             except Device.DoesNotExists:
                 pass
-        energy_measurements = decide_energy_prices(energy_measurements)
         return energy_measurements
 
     def get_energy_hour_by_hour(self, day=None):
