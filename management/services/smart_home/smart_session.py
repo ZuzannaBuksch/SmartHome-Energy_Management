@@ -1,11 +1,14 @@
 from contextlib import contextmanager
 from urllib.parse import urljoin
-from starlette.exceptions import HTTPException
+
 import requests
-from requests_toolbelt.sessions import BaseUrlSession
-from .smart_request import SmartHomeRequest
-from management.settings import SMART_HOME_URL
 from requests_cache import CachedSession
+from starlette.exceptions import HTTPException
+
+from management.settings import SMART_HOME_URL
+
+from .smart_request import SmartHomeRequest
+
 
 def check_for_errors(response, *args, **kwargs):
     return response.raise_for_status()
@@ -28,7 +31,7 @@ def smart_home_session(request: SmartHomeRequest = None) -> requests.Session:
         date_format = "%Y-%m-%d %H:%M:%S"
         params = {
             "start_date": request.start_date.strftime(date_format),
-            "end_date": request.end_date.strftime(date_format)
+            "end_date": request.end_date.strftime(date_format),
         }
     except AttributeError:
         params = {}
@@ -41,8 +44,8 @@ def smart_home_session(request: SmartHomeRequest = None) -> requests.Session:
         urljoin(http.base_url, args[0]),
         *args[1:],
         **kwargs,
-        headers = headers,
-        params = params,
+        headers=headers,
+        params=params,
     )
 
     http.post = lambda *args, **kwargs: requests.Session.post(
@@ -50,8 +53,8 @@ def smart_home_session(request: SmartHomeRequest = None) -> requests.Session:
         urljoin(http.base_url, args[0]),
         *args[1:],
         **kwargs,
-        headers = headers,
-        params = params,
+        headers=headers,
+        params=params,
     )
 
     http.patch = lambda *args, **kwargs: CachedSession.patch(
@@ -59,16 +62,16 @@ def smart_home_session(request: SmartHomeRequest = None) -> requests.Session:
         urljoin(http.base_url, args[0]),
         *args[1:],
         **kwargs,
-        headers = headers,
-        params = params,
+        headers=headers,
+        params=params,
     )
 
-    http.hooks["response"] = [check_for_errors]
+    # http.hooks["response"] = [check_for_errors]
 
     try:
         yield http
     except requests.exceptions.HTTPError as e:
-        raise HTTPException(
+        return HTTPException(
             status_code=e.response.status_code, detail=e.response.json()
         )
     finally:

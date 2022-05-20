@@ -1,9 +1,9 @@
 import json
-from typing import Any, Mapping, List
-
-from .smart_building import SmartHomeBuilding
+from typing import Any, List, Mapping
 
 from requests import Response
+
+from .smart_building import SmartHomeBuilding
 from .smart_object import SmartHomeObject
 
 
@@ -16,17 +16,15 @@ class SmartHomeUser(SmartHomeObject):
         self.email = data.get("email")
         super().__init__(*args, **kwargs)
 
-
     @staticmethod
     def url(user_id: str) -> str:
         return f"users/{user_id}"
-
 
     def get_buildings(self, building_id):
         data = self._get_data(SmartHomeBuilding.url(building_id))
         return [SmartHomeBuilding(building_data) for building_data in data]
 
-    def push_buildings(self, buildings = List[SmartHomeBuilding]) -> Response:
-        push_url = f'{SmartHomeUser.url(self.id)}/buildings/'
+    def push_buildings(self, buildings=List[SmartHomeBuilding]) -> Response:
+        push_url = f"{SmartHomeUser.url(self.id)}/buildings/"
         buildings_data = [building.asdict() for building in buildings]
         return self._push_data(push_url, data=json.dumps(buildings_data))

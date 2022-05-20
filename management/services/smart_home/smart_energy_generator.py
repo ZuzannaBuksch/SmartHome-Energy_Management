@@ -11,7 +11,4 @@ class SmartHomeEnergyGenerator(SmartHomeDevice):
         super().__init__(data, *args, **kwargs)
 
     def asdict(self):
-        return {
-            "generation_power": self.generation_power,
-            **super().asdict()
-        }
+        return {"generation_power": self.generation_power, **super().asdict()}

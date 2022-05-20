@@ -1,6 +1,9 @@
+import json
+from datetime import datetime
 from typing import Any, Mapping
 
 from .smart_device import SmartHomeDevice
+from .smart_raport import SmartHomeStorageChargingAndUsageRaport
 
 
 class SmartHomeEnergyStorage(SmartHomeDevice):
@@ -15,5 +18,16 @@ class SmartHomeEnergyStorage(SmartHomeDevice):
         return {
             "capacity": self.capacity,
             "battery_voltage": self.battery_voltage,
-            **super().asdict()
+            **super().asdict(),
         }
+
+    def get_raports(self, start_date: datetime, end_date: datetime):
+        get_url = f"{SmartHomeEnergyStorage.url(self.id)}"
+        self._request.start_date = start_date
+        self._request.end_date = end_date
+        device = self._get_data(get_url)
+        raports = device.get("raports")
+        return [
+            SmartHomeStorageChargingAndUsageRaport(raport, self._request)
+            for raport in raports
+        ]

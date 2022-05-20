@@ -13,11 +13,20 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from django.conf.urls import url
 from django.contrib import admin
 from django.urls import include, path
+from rest_framework.documentation import include_docs_urls
+from rest_framework.schemas import get_schema_view
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path("admin/", admin.site.urls),
+    path("docs/", include_docs_urls(title="Management Center API")),
+    path(
+        "schema",
+        get_schema_view(title="Management Center API", version="1.0.0"),
+        name="openapi-schema",
+    ),
     path("api/", include("users.urls")),
-    path("api/", include("smarthome.urls", namespace='smarthome')),
+    path("api/", include("smarthome.urls", namespace="smarthome")),
 ]

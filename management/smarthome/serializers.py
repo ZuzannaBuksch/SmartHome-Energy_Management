@@ -1,49 +1,80 @@
 from rest_framework import serializers
-
-from .models import Building, Room, Device, EnergyGenerator, EnergyReceiver, EnergyStorage, Floor, EnergyDailyMeasurement
 from rest_polymorphic.serializers import PolymorphicSerializer
-from django.utils.functional import lazy
+
+from .models import (Building, Device, EnergyDailyMeasurement, EnergyGenerator,
+                     EnergyReceiver, EnergyStorage, Floor, Room)
 
 
 class AbstractDeviceSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField()
+    id = serializers.IntegerField(required=False)
+
     class Meta:
         model = Device
         fields = "__all__"
 
 
 class EnergyGeneratorSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField()
+    id = serializers.IntegerField(required=False)
+
     class Meta:
         model = EnergyGenerator
-        fields = ('id', 'building', 'name', 'state', 'room','efficiency', 'type', 'generation_power')
+        fields = (
+            "id",
+            "building",
+            "name",
+            "state",
+            "room",
+            "efficiency",
+            "type",
+            "generation_power",
+        )
 
 
 class EnergyReceiverSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField()
+    id = serializers.IntegerField(required=False)
+
     class Meta:
         model = EnergyReceiver
-        fields = ('id', 'building', 'name', 'state', 'room', 'device_power', 'type', 'supply_voltage')
+        fields = (
+            "id",
+            "building",
+            "name",
+            "state",
+            "room",
+            "device_power",
+            "type",
+            "supply_voltage",
+        )
 
 
 class EnergyStorageSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField()
+    id = serializers.IntegerField(required=False)
+
     class Meta:
         model = EnergyStorage
-        fields = ('id', 'building', 'name', 'state', 'room', 'capacity', 'battery_charge', 'type', 'battery_voltage')
+        fields = (
+            "id",
+            "building",
+            "name",
+            "state",
+            "room",
+            "capacity",
+            "type",
+            "battery_voltage",
+        )
 
 
 class DeviceSerializer(PolymorphicSerializer):
     model_serializer_mapping = {
-            Device: AbstractDeviceSerializer,
-            EnergyGenerator: EnergyGeneratorSerializer,
-            EnergyReceiver: EnergyReceiverSerializer,
-            EnergyStorage: EnergyStorageSerializer
-        }
+        Device: AbstractDeviceSerializer,
+        EnergyGenerator: EnergyGeneratorSerializer,
+        EnergyReceiver: EnergyReceiverSerializer,
+        EnergyStorage: EnergyStorageSerializer,
+    }
 
 
 class RoomSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField()
+    id = serializers.IntegerField(required=False)
     room_devices = DeviceSerializer(many=True, read_only=True)
 
     class Meta:
@@ -86,13 +117,16 @@ class EnergyDailyMeasurementSerializer(serializers.ModelSerializer):
         model = EnergyDailyMeasurement
         fields = "__all__"
 
+
 class BuildingIdSerializer(serializers.ModelSerializer):
     class Meta:
         model = Building
-        fields = ("id", )
+        fields = ("id",)
 
 
 class EnergyDailyMeasurementViewSerializer(serializers.Serializer):
-    start_date = serializers.DateField(format="%Y-%m-%d", input_formats=['%Y-%m-%d'])
-    end_date = serializers.DateField(format="%Y-%m-%d", input_formats=['%Y-%m-%d'], required=False)
+    start_date = serializers.DateField(format="%Y-%m-%d", input_formats=["%Y-%m-%d"])
+    end_date = serializers.DateField(
+        format="%Y-%m-%d", input_formats=["%Y-%m-%d"], required=False
+    )
     building = serializers.PrimaryKeyRelatedField(queryset=Building.objects.all())

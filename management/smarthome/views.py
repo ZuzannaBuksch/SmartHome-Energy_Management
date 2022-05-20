@@ -1,18 +1,29 @@
-from copy import deepcopy
-from datetime import datetime, timedelta, time
 import json
-from services.smart_home import SmartHomeEnergyGenerator, SmartHomeEnergyReceiver, SmartHomeEnergyStorage, SmartHomeDevice, SmartHomeDeviceRaport
-from users.models import User
-from rest_framework import viewsets, generics, status, mixins
-from rest_framework.permissions import AllowAny
-from .models import Building, Device, EnergyGenerator, EnergyDailyMeasurement, EnergyReceiver, EnergyStorage, Floor, Room
-from .serializers import EnergyDailyMeasurementViewSerializer, BuildingSerializer, BuildingListSerializer, DeviceSerializer, RoomSerializer, EnergyDailyMeasurementSerializer
-from services.smart_home import SmartHomeUser, SmartHomeBuilding
-from django.shortcuts import get_object_or_404
-from rest_framework.response import Response
-from django.db import transaction
 from collections import defaultdict
+from copy import deepcopy
+
+from django.db import transaction
+from django.forms.models import model_to_dict
+from django.shortcuts import get_object_or_404
+from rest_framework import generics, mixins, status, viewsets
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from services.smart_home import (SmartHomeBuilding, SmartHomeDevice,
+                                 SmartHomeDeviceRaport,
+                                 SmartHomeEnergyGenerator,
+                                 SmartHomeEnergyReceiver,
+                                 SmartHomeEnergyStorage, SmartHomeUser)
+from services.smart_home.smart_raport import (
+    JobType, SmartHomeStorageChargingAndUsageRaport)
+from users.models import User
+
 from .energy_manager import BuildingEnergyManager
+from .models import (Building, Device, EnergyDailyMeasurement, EnergyGenerator,
+                     EnergyReceiver, EnergyStorage, Floor, Room)
+from .serializers import (BuildingListSerializer, BuildingSerializer,
+                          DeviceSerializer, EnergyDailyMeasurementSerializer,
+                          EnergyDailyMeasurementViewSerializer, RoomSerializer)
+
 
 class BuildingFromJsonFileViewSet(viewsets.ModelViewSet):
     queryset = Building.objects.all()
@@ -23,10 +34,23 @@ class BuildingFromJsonFileViewSet(viewsets.ModelViewSet):
 
     @transaction.atomic
     def create(self, request):
+        # device = Device.objects.get(id=33)
+        # smart_device = SmartHomeEnergyStorage(device.__dict__)
+        # # raport = SmartHomeStorageChargingAndUsageRaport({"date_time_from": "2022-05-09 14:05:02", "date_time_to": "2022-05-09 14:06:02", "job_type": JobType.CHARGING.value})
+
+        # resp = smart_device.get_raports(
+        #     start_date=datetime(2022, 5, 9, 0, 0, 0),
+        #     end_date=datetime(2022, 5, 9, 23, 59, 59),
+        # )
+        # print(resp)
+        # return Response(resp.json(), status=resp.status_code)
+
         with open("dane_json.txt", "r") as f:
             devices = json.load(f)
         user = User.objects.get(id=1)
-        building = Building(name="house_arizona", user=user, id=devices[0].get("building"))
+        building = Building(
+            name="house_arizona", user=user, id=devices[0].get("building")
+        )
         building.save()
         floor = Floor(level=1, building=building)
         floor.save()
@@ -36,22 +60,24 @@ class BuildingFromJsonFileViewSet(viewsets.ModelViewSet):
                 room.save()
                 device["room"] = room.id
             else:
-                room = None 
+                room = None
             device["resourcetype"] = device.get("type")
             device["building"] = building.id
             serializer = DeviceSerializer(data=device)
             if serializer.is_valid():
                 serializer.save()
             else:
-                return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                )
 
-        smart_devices=[]
+        smart_devices = []
         for device in devices:
             for_smart = deepcopy(device)
             smart_device_class = {
                 "EnergyReceiver": SmartHomeEnergyReceiver,
                 "EnergyGenerator": SmartHomeEnergyGenerator,
-                "EnergyStorage": SmartHomeEnergyStorage
+                "EnergyStorage": SmartHomeEnergyStorage,
             }.get(device["type"])
             smart_devices.append(smart_device_class(for_smart))
 
@@ -60,7 +86,6 @@ class BuildingFromJsonFileViewSet(viewsets.ModelViewSet):
         smart_user.push_buildings([smart_building])
         resp = smart_building.push_devices(smart_devices)
         return Response(resp.json(), status=resp.status_code)
-
 
 
 class BuildingViewSet(viewsets.ModelViewSet):
@@ -89,7 +114,7 @@ class BuildingViewSet(viewsets.ModelViewSet):
     #     return self.request.user.user_buildings.all()
 
 
-class DeviceViewSet(mixins.UpdateModelMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+class DeviceViewSet(viewsets.ModelViewSet):
     queryset = Device.objects.all()
     serializer_class = DeviceSerializer
     permission_classes = [
@@ -100,17 +125,33 @@ class DeviceViewSet(mixins.UpdateModelMixin, mixins.ListModelMixin, mixins.Retri
     def get_extra_actions(cls):
         return []
 
+    def _get_device_class_by_type(self, type_):
+        return {
+            EnergyReceiver.__name__: SmartHomeEnergyReceiver,
+            EnergyGenerator.__name__: SmartHomeEnergyGenerator,
+            EnergyStorage.__name__: SmartHomeEnergyStorage,
+        }.get(type_)
+
     @transaction.atomic
     def partial_update(self, request, *args, **kwargs):
         json_device = super().partial_update(request, *args, **kwargs)
-        smart_device_class = {
-                    "EnergyReceiver": SmartHomeEnergyReceiver,
-                    "EnergyGenerator": SmartHomeEnergyGenerator,
-                    "EnergyStorage": SmartHomeEnergyStorage
-                }.get(json_device.data["type"])
+        smart_device_class = self._get_device_class_by_type(json_device.data["type"])
         smart_device = smart_device_class(json_device.data)
         resp = smart_device.update_state()
         return Response(resp.json(), status=resp.status_code)
+
+    @transaction.atomic
+    def create(self, request):
+        if not request.data.get("id"):
+            request.data["id"] = Device.objects.all().last().id + 1
+        json_device = super().create(request)
+        building = get_object_or_404(Building, id=json_device.data.get("building"))
+        smart_building = SmartHomeBuilding(model_to_dict(building))
+        smart_device_class = self._get_device_class_by_type(json_device.data["type"])
+        smart_device = smart_device_class(json_device.data)
+        resp = smart_building.push_devices([smart_device])
+        return Response(resp.json(), status=resp.status_code)
+
 
 class RoomViewSet(viewsets.ModelViewSet):
     queryset = Room.objects.all()
@@ -119,8 +160,9 @@ class RoomViewSet(viewsets.ModelViewSet):
         AllowAny,
     ]
 
+
 class BuildingEnergyView(mixins.RetrieveModelMixin, generics.GenericAPIView):
-    #returns building energy usage hour by hour for current day
+    # returns building energy usage hour by hour for current day
     permission_classes = [
         AllowAny,
     ]
@@ -142,20 +184,25 @@ class BuildingEnergyView(mixins.RetrieveModelMixin, generics.GenericAPIView):
                 for device in room.get("room_devices"):
                     device["energy_measurements"] = {}
                     for hour, devices_energies in hours_energies.items():
-                        device["energy_measurements"][hour] = self._get_energy_by_device_id(devices_energies, device["id"])
+                        device["energy_measurements"][
+                            hour
+                        ] = self._get_energy_by_device_id(
+                            devices_energies, device["id"]
+                        )
 
         return Response(serialized_building)
-    
+
     def _get_energy_by_device_id(self, devices, id_):
-        device_energy =  next((dev for dev in devices if dev["device_id"] == id_))
+        device_energy = next((dev for dev in devices if dev["device_id"] == id_))
         return {
             "energy_value": device_energy.get("energy_value"),
-            "price": device_energy.get("price")
+            "price": device_energy.get("price"),
         }
-    
 
 
-class EnergyMeasurementViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, generics.GenericAPIView):
+class EnergyMeasurementViewSet(
+    mixins.ListModelMixin, mixins.CreateModelMixin, generics.GenericAPIView
+):
     queryset = EnergyDailyMeasurement.objects.all()
     serializer_class = EnergyDailyMeasurementViewSerializer
     permission_classes = [
@@ -165,7 +212,7 @@ class EnergyMeasurementViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, g
     @classmethod
     def get_extra_actions(cls):
         return []
-    
+
     def get(self, request, *args, **kwargs):
         serializer = EnergyDailyMeasurementViewSerializer(data=request.query_params)
         if serializer.is_valid():
@@ -178,22 +225,34 @@ class EnergyMeasurementViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, g
             serialized_building = BuildingSerializer(building).data
 
             self._initialize_device_energy_dicts(serialized_building)
-            energy_measurements = EnergyDailyMeasurement.objects.filter(date__range=[start_date, end_date], device__building=building)
+            energy_measurements = EnergyDailyMeasurement.objects.filter(
+                date__range=[start_date, end_date], device__building=building
+            )
 
             for floor in serialized_building.get("building_floors"):
                 for room in floor.get("floor_rooms"):
                     for device in room.get("room_devices"):
-                        energy_data = [data for data in energy_measurements if data.device.id == device.get("id")]
+                        energy_data = [
+                            data
+                            for data in energy_measurements
+                            if data.device.id == device.get("id")
+                        ]
                         for day in energy_data:
-                            if device.get("id")==1:
+                            if device.get("id") == 1:
                                 print(day)
                             date_str = "%Y-%m-%d"
-                            device["energy_data"]["energy_sum"][day.date.strftime(date_str)] = day.energy_value
-                            device["energy_data"]["energy_price"][day.date.strftime(date_str)] = day.calculated_price
-                            device["energy_data"]["energy_source"][day.date.strftime(date_str)] = day.energy_source
-                
+                            device["energy_data"]["energy_sum"][
+                                day.date.strftime(date_str)
+                            ] = day.energy_value
+                            device["energy_data"]["energy_price"][
+                                day.date.strftime(date_str)
+                            ] = day.calculated_price
+                            device["energy_data"]["energy_source"][
+                                day.date.strftime(date_str)
+                            ] = day.energy_source
+
             return Response(serialized_building)
-    
+
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -204,12 +263,13 @@ class EnergyMeasurementViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, g
             start_date = validated_data.get("start_date")
             end_date = validated_data.get("end_date")
             building = validated_data.get("building")
-            
-            measurements = BuildingEnergyManager(building).manage_building_energy(start_date, end_date)
+
+            measurements = BuildingEnergyManager(building).manage_building_energy(
+                start_date, end_date
+            )
             serializer = EnergyDailyMeasurementSerializer(measurements, many=True)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
 
     def _initialize_device_energy_dicts(self, building):
         for floor in building.get("building_floors"):
@@ -218,6 +278,7 @@ class EnergyMeasurementViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, g
                     d = defaultdict(lambda: {})
                     device["energy_data"] = d
         return building
+
 
 class BuildingDevicesView(generics.ListAPIView):
     queryset = Device.objects.all()
@@ -233,7 +294,7 @@ class BuildingDevicesView(generics.ListAPIView):
     def post(self, request, *args, **kwargs):
         building = get_object_or_404(Building, id=kwargs.get("pk"))
         device_data = request.data
-        smart_devices=[]
+        smart_devices = []
         for device in device_data:
             device["resourcetype"] = device.get("type")
             device["building"] = building.id
@@ -243,13 +304,14 @@ class BuildingDevicesView(generics.ListAPIView):
                 smart_device_class = {
                     "EnergyReceiver": SmartHomeEnergyReceiver,
                     "EnergyGenerator": SmartHomeEnergyGenerator,
-                    "EnergyStorage": SmartHomeEnergyStorage
+                    "EnergyStorage": SmartHomeEnergyStorage,
                 }.get(serializer.data["type"])
                 smart_devices.append(smart_device_class(serializer.data))
             else:
-                return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                )
         smart_building = SmartHomeBuilding(building.__dict__)
-                
+
         resp = smart_building.push_devices(smart_devices)
         return Response(resp.json(), status=resp.status_code)
-        
