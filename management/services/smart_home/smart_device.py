@@ -28,11 +28,13 @@ class SmartHomeDevice(SmartHomeObject):
             "building": self.building,
             "resourcetype": self.type,
         }
-    
+
     def update_state(self):
-        return self._patch_data(SmartHomeDevice.url(self.id), data=json.dumps(self.asdict()))
+        return self._patch_data(
+            SmartHomeDevice.url(self.id), data=json.dumps(self.asdict())
+        )
 
     def push_raports(self, raports):
-        push_url = f'{SmartHomeDevice.url(self.id)}/device-raports/'
+        push_url = f"{SmartHomeDevice.url(self.id)}/device-raports/"
         raports_data = [raport.asdict() for raport in raports]
         return self._push_data(push_url, data=json.dumps(raports_data))

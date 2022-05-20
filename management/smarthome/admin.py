@@ -1,5 +1,7 @@
 from django.contrib import admin
-from .models import Device, Building, EnergyGenerator, EnergyReceiver, EnergyStorage, Room, Floor, EnergyDailyMeasurement
+
+from .models import (Building, Device, EnergyDailyMeasurement, EnergyGenerator,
+                     EnergyReceiver, EnergyStorage, Floor, Room)
 
 admin.site.register(Device)
 admin.site.register(Room)

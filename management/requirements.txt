@@ -21,3 +21,5 @@ requests-toolbelt==0.9.1
 requests_cache
 django-rest-polymorphic==0.1.9
 jsonfield
+pyyaml==6.0
+uritemplate

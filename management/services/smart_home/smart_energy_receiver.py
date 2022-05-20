@@ -15,5 +15,5 @@ class SmartHomeEnergyReceiver(SmartHomeDevice):
         return {
             "device_power": self.device_power,
             "supply_voltage": self.supply_voltage,
-            **super().asdict()
+            **super().asdict(),
         }
