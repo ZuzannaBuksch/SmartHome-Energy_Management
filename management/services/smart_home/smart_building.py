@@ -55,8 +55,28 @@ class SmartHomeBuilding(SmartHomeObject):
         devices_data = [device.asdict() for device in devices]
         return self._push_data(push_url, data=json.dumps(devices_data))
 
-    def get_energy(self, start_date: datetime, end_date: datetime):
+
+    def get_energy_usage(self, start_date: datetime, end_date: datetime):
         energy_url = f"{SmartHomeBuilding.url(self.id)}/energy"
+        return self._get_energy(start_date, end_date, energy_url)
+    
+    def get_energy_storage(self, start_date: datetime, end_date: datetime):
+        energy_url = f"{SmartHomeBuilding.url(self.id)}/energy-storage"
+        return self._get_energy(start_date, end_date, energy_url)
+
+    def get_energy_hour_by_hour(self, day=None):
+        if day is None:
+            day = date.today()
+        dates = [datetime.combine(day, time(hour=x)) for x in range(24)]
+
+        return {
+            (dates[i] + timedelta(minutes=59, seconds=59)).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ): self.get_energy_usage(dates[i], dates[i] + timedelta(minutes=59, seconds=59))
+            for i in range(0, len(dates))
+        }
+
+    def _get_energy(self, start_date:datetime, end_date:datetime, energy_url:str):
         self._request.start_date = start_date
         self._request.end_date = end_date
         energy_data = self._get_data(energy_url)
@@ -82,15 +102,3 @@ class SmartHomeBuilding(SmartHomeObject):
             except Device.DoesNotExists:
                 pass
         return energy_measurements
-
-    def get_energy_hour_by_hour(self, day=None):
-        if day is None:
-            day = date.today()
-        dates = [datetime.combine(day, time(hour=x)) for x in range(24)]
-
-        return {
-            (dates[i] + timedelta(minutes=59, seconds=59)).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            ): self.get_energy(dates[i], dates[i] + timedelta(minutes=59, seconds=59))
-            for i in range(0, len(dates))
-        }

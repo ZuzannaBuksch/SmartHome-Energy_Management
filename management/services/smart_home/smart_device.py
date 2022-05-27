@@ -1,5 +1,9 @@
+from datetime import datetime
 import json
 from typing import Any, Mapping
+from .smart_raport import SmartHomeStorageChargingAndUsageRaport, SmartHomeDeviceRaport
+
+from smarthome.models import EnergyReceiver, EnergyStorage
 
 from .smart_object import SmartHomeObject
 
@@ -33,6 +37,18 @@ class SmartHomeDevice(SmartHomeObject):
         return self._patch_data(
             SmartHomeDevice.url(self.id), data=json.dumps(self.asdict())
         )
+
+    def get_raports(self, start_date: datetime, end_date: datetime):
+        get_url = f"{SmartHomeDevice.url(self.id)}"
+        self._request.start_date = start_date
+        self._request.end_date = end_date
+        device = self._get_data(get_url)
+        raports = device.get("raports", [])
+        raport_class = {
+            EnergyStorage.__name__: SmartHomeStorageChargingAndUsageRaport,
+            EnergyReceiver.__name__: SmartHomeDeviceRaport,
+        }.get(self.type)
+        return [raport_class(raport, self._request) for raport in raports]
 
     def push_raports(self, raports):
         push_url = f"{SmartHomeDevice.url(self.id)}/device-raports/"
