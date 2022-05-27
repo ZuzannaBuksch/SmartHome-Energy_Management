@@ -41,7 +41,7 @@ class BuildingEnergyManager:
             for hour in hours:
                 start_datetime = datetime.combine(day, time(hour, 0, 0))
                 end_datetime = datetime.combine(day, time(hour, 59, 59))
-                day_energy_data = smart_building.get_energy(
+                day_energy_data = smart_building.get_energy_usage(
                     start_datetime, end_datetime
                 )
 

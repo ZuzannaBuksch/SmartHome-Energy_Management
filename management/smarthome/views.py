@@ -1,6 +1,7 @@
 import json
 from collections import defaultdict
 from copy import deepcopy
+import datetime
 
 from django.db import transaction
 from django.forms.models import model_to_dict
@@ -14,7 +15,7 @@ from services.smart_home import (SmartHomeBuilding, SmartHomeDevice,
                                  SmartHomeEnergyReceiver,
                                  SmartHomeEnergyStorage, SmartHomeUser)
 from services.smart_home.smart_raport import (
-    JobType, SmartHomeStorageChargingAndUsageRaport)
+    JobType, SmartHomeChargeStateRaport, SmartHomeStorageChargingAndUsageRaport)
 from users.models import User
 
 from .energy_manager import BuildingEnergyManager
@@ -44,6 +45,18 @@ class BuildingFromJsonFileViewSet(viewsets.ModelViewSet):
         # )
         # print(resp)
         # return Response(resp.json(), status=resp.status_code)
+
+        # device = Device.objects.get(id=33)
+        # smart_device = SmartHomeEnergyStorage({**model_to_dict(device), "type": device.type})
+        # raports = smart_device.get_charge_state_raports(start_date=datetime.datetime(2022, 5, 9, 0, 0, 0), end_date=datetime.datetime(2022, 5, 24, 23, 59, 59))
+        # new_raport = SmartHomeChargeStateRaport({"date": datetime.datetime(2022,5,21,12,0,0), "charge_value": 0})
+        # smart_device.push_charge_state_raports([new_raport])
+
+        # start_date=datetime.datetime(2022, 5, 9, 0, 0, 0)
+        # end_date=datetime.datetime(2022, 5, 24, 23, 59, 59)
+        # building = Building.objects.get(id=1)
+        # smart_building = SmartHomeBuilding(building.__dict__)
+        # storage_data = smart_building.get_energy_storage(start_date, end_date)
 
         with open("dane_json.txt", "r") as f:
             devices = json.load(f)
@@ -216,7 +229,6 @@ class EnergyMeasurementViewSet(
     def get(self, request, *args, **kwargs):
         serializer = EnergyDailyMeasurementViewSerializer(data=request.query_params)
         if serializer.is_valid():
-            print(serializer.data)
             validated_data = serializer.to_internal_value(serializer.data)
             start_date = validated_data.get("start_date")
             end_date = validated_data.get("end_date")
