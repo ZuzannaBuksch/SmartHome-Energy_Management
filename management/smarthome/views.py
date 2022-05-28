@@ -238,7 +238,7 @@ class EnergyMeasurementViewSet(
 
             self._initialize_device_energy_dicts(serialized_building)
             energy_measurements = EnergyDailyMeasurement.objects.filter(
-                date__range=[start_date, end_date], device__building=building
+                datetime__range=[start_date, end_date], device__building=building
             )
 
             for floor in serialized_building.get("building_floors"):
