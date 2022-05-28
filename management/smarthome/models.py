@@ -1,3 +1,4 @@
+from datetime import datetime
 from django.core.validators import MaxValueValidator
 from django.db import models
 from jsonfield import JSONField
@@ -35,7 +36,6 @@ class Room(models.Model):
 
 
 class Device(PolymorphicModel):
-    id = models.IntegerField(primary_key=True)
     name = models.CharField(max_length=100, null=False)
     state = models.BooleanField(null=False, default=False)
     room = models.ForeignKey(
@@ -80,8 +80,6 @@ class EnergyStorage(Device):
 class EnergyDailyMeasurement(models.Model):
     datetime = models.DateTimeField(auto_now=False, null=False)
     energy_value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
-    calculated_price = models.DecimalField(max_digits=20, decimal_places=10, null=False)
-    energy_source = models.CharField(max_length=100, null=False)
     device = models.ForeignKey(
         Device, on_delete=models.CASCADE, related_name="device_daily_measurements"
     )
@@ -99,8 +97,6 @@ class EnergyDailyMeasurement(models.Model):
 class EnergyMeasurement(models.Model):
     date = models.DateField(auto_now=False, null=False)
     energy_value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
-    calculated_price = models.DecimalField(max_digits=20, decimal_places=10, null=False)
-    energy_sources_percentage = JSONField(null=False)
     device = models.ForeignKey(
         Device, on_delete=models.CASCADE, related_name="device_measurements"
     )
@@ -114,6 +110,76 @@ class EnergyMeasurement(models.Model):
     def __str__(self):
         return f"Measurement: {str(self.id)} | device: {self.device.name} | date: {self.date}"
 
+class ExchangeEnergyStorageRaport(models.Model):
+    building = models.ForeignKey(
+        Building,
+        related_name="building_exchange_raports",
+        null=False,
+        on_delete=models.CASCADE,
+    )
+    total_value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
+    remained_value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
+    purchase_price = models.DecimalField(max_digits=20, decimal_places=10, null=False)
+    date_time_from = models.DateTimeField()
+    date_time_to = models.DateTimeField()
+
+
+class EnergySurplusLossRaport(models.Model):
+    building = models.ForeignKey(
+        Building,
+        related_name="building_surplus_loss_raports",
+        null=False,
+        on_delete=models.CASCADE,
+    )
+    value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
+    date_time = models.DateTimeField()
+
+
+class EnergySurplusRaport(models.Model):
+    TRANSFER = 'TRANSFER'
+    DEVICES_POWERING= 'DEVICES_POWERING'
+    BATTERY_CHARGING = 'BATTERY_CHARGING'
+    usage_types = [
+        (TRANSFER, "transfer"),
+        (DEVICES_POWERING, "devices_powering"),
+        (BATTERY_CHARGING, "battery_charging")
+    ]
+    usage_type = models.CharField(max_length=20, choices=usage_types)
+    building = models.ForeignKey(
+        Building,
+        related_name="building_surplus_raports",
+        null=False,
+        on_delete=models.CASCADE,
+    )
+    value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
+    date_time = models.DateTimeField()
+
+    def save(self, *args, **kwargs):
+        try:
+            current_value = EnergySurplusRaport.objects.filter(building=self.building).latest('date_time').value
+        except EnergySurplusRaport.DoesNotExist:
+            current_value = 0
+        
+        if self.usage_type == EnergySurplusRaport.TRANSFER:
+            value_to_grid = 0.8*self.value
+            value_loss = 0.2*self.value
+            EnergySurplusLossRaport.objects.create(value=value_loss, building=self.building, date_time=self.date_time)
+            self.value = current_value+value_to_grid
+        else:
+            self.value = current_value-value_to_grid
+
+        return super().save(*args, **kwargs)
+
+class EnergySourcesRaport(models.Model):
+    building = models.ForeignKey(
+        Building,
+        related_name="building_energy_sources_raports",
+        null=False,
+        on_delete=models.CASCADE,
+    )
+    energy_sources = JSONField(null=False)
+    date_time_from = models.DateTimeField()
+    date_time_to = models.DateTimeField()
 
 class Schedule(models.Model):
     building = models.ForeignKey(
@@ -129,13 +195,13 @@ class Schedule(models.Model):
     state_value = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True, default=None
     )
-    date_from = models.DateTimeField()
-    date_to = models.DateTimeField()
+    date_time_from = models.DateTimeField()
+    date_time_to = models.DateTimeField()
 
     class Meta:
         unique_together = (
             "device",
-            "date_from",
+            "date_time_from",
         )
 
     def __str__(self):
