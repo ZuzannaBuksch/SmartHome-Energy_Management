@@ -159,15 +159,17 @@ class EnergySurplusRaport(models.Model):
             current_value = EnergySurplusRaport.objects.filter(building=self.building).latest('date_time').value
         except EnergySurplusRaport.DoesNotExist:
             current_value = 0
-        
+
+        if self.value<=0:
+                return
+
         if self.usage_type == EnergySurplusRaport.TRANSFER:
             value_to_grid = 0.8*self.value
             value_loss = 0.2*self.value
             EnergySurplusLossRaport.objects.create(value=value_loss, building=self.building, date_time=self.date_time)
             self.value = current_value+value_to_grid
         else:
-            self.value = current_value-value_to_grid
-
+            self.value = current_value-self.value
         return super().save(*args, **kwargs)
 
 class EnergySourcesRaport(models.Model):
