@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from django.core.validators import MaxValueValidator
 from django.db import models
 from jsonfield import JSONField
@@ -164,10 +165,10 @@ class EnergySurplusRaport(models.Model):
                 return
 
         if self.usage_type == EnergySurplusRaport.TRANSFER:
-            value_to_grid = 0.8*self.value
-            value_loss = 0.2*self.value
+            value_to_grid = 0.8*float(self.value)
+            value_loss = 0.2*float(self.value)
             EnergySurplusLossRaport.objects.create(value=value_loss, building=self.building, date_time=self.date_time)
-            self.value = current_value+value_to_grid
+            self.value = float(current_value)+value_to_grid
         else:
             self.value = current_value-self.value
         return super().save(*args, **kwargs)
