@@ -1,130 +1,64 @@
-from datetime import datetime, time, timedelta
-from decimal import Decimal, ROUND_HALF_UP
-from typing import List
+from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any, Dict
 
-from services.smart_home import SmartHomeBuilding
-
-from .models import Device, EnergyDailyMeasurement, EnergyGenerator, EnergyReceiver, EnergySourcesRaport, EnergySurplusRaport
-from .price_classifier import PriceClassifier
-from .grid_surplus_calc import GridSurplusEnergyCalculator
-from .photovoltaics_calc import PhotovoltaicsEnergyCalculator
-from .serializers import BuildingSerializer
 from .constants import EnergySource as sources
+from .energy_calculators import sources_calculators
+from .price_manager import PriceManager
 
 
 class BuildingEnergyManager:
-    _PUBLIC_GRID_PRICE = 0.68 #PLN
-    _PHOTOVOLTAICS_PRICE = 0.0
-    _GRID_SURPLUS_PRICE = 0.0
-    _photovoltaics_calc = None
-    _grid_surplus_calc = None
-
-    def __init__(self, building):
+    def __init__(self, building, sources_calculators=sources_calculators):
         self._building = building
-        self._grid_surplus_calc = GridSurplusEnergyCalculator(self._building)
-        self._photovoltaics_calc = PhotovoltaicsEnergyCalculator()
+        self._sources_calculators = sources_calculators
+        self._initialize_calculators_for_energy_sources()
 
-    def manage_building_energy(self, start_date: datetime, end_date: datetime):
-        measurements = self._download_energy_data_task_tmp(start_date, end_date)
-        self._energy_sources = {}
-        self._grid_surplus_calc.update_datetime(end_date)
+    def manage_energy_sources(
+        self, end_date: datetime, energy_demand: float, energy_generated: float
+    ) -> Dict[str, Any]:
+        self._energy_sources_data = {}
+        self._update_energy_generated(energy_generated)
+        self._update_datetime(end_date)
 
-        energy_missing = self._use_energy_from_source(sources.PHOTOVOLTAICS, measurements)
-        energy_missing = self._use_energy_from_source(sources.GRID_SURPLUS, energy_missing)
-        energy_missing = self._use_energy_from_source(sources.PUBLIC_GRID, energy_missing)
+        energy_missing = self._use_energy_from_sources(energy_demand)
+        self._store_remaining_energy(energy_missing)
 
-        sources_raport = EnergySourcesRaport(building=self._building, date_time_from = start_date, date_time_to=end_date, energy_sources=self._energy_sources)
-        return measurements, sources_raport
+        return self._energy_sources_data
 
-    def _use_energy_from_source(self, source_type, *args, **kwargs):
-        return {
-            sources.PHOTOVOLTAICS: self._use_photovoltaics_energy,
-            sources.GRID_SURPLUS: self._use_grid_surplus_energy,
-            sources.PUBLIC_GRID: self._use_public_grid_energy,
-        }.get(source_type)(*args, **kwargs)
-
-    def _use_public_grid_energy(self, energy_demand):
-        self._update_energy_sources(sources.PUBLIC_GRID, abs(energy_demand), self._PUBLIC_GRID_PRICE)
-
-    def _use_grid_surplus_energy(self, energy_demand):
-        energy_used, energy_missing =  self._grid_surplus_calc.calculate_grid_surplus_cover(energy_demand)
-        self._update_energy_sources(sources.GRID_SURPLUS, energy_used, self._GRID_SURPLUS_PRICE) 
-        return energy_missing 
-
-    def _use_photovoltaics_energy(self, measurements):
-        energy_generated = self._calculate_energy_sum(self._get_measurements_by_type(measurements, EnergyGenerator.__name__))
-        energy_demand = self._calculate_energy_sum(self._get_measurements_by_type(measurements, EnergyReceiver.__name__))
-        energy_used, energy_missing = self._photovoltaics_calc.calculate_photovoltaics_cover(energy_generated, energy_demand)
-        self._update_energy_sources(sources.PHOTOVOLTAICS, energy_used, self._PHOTOVOLTAICS_PRICE)
+    def _use_energy_from_sources(self, energy_demand):
+        energy_missing = energy_demand
+        pm = PriceManager()
+        for source, energy_calc in self._sources_calculators.items():
+            energy_price = pm.get_price_by_source(source)
+            energy_used, energy_missing = energy_calc.calculate_energy_cover(
+                energy_missing
+            )
+            self._update_energy_sources_data(source, energy_used, energy_price)
         return energy_missing
 
-    def _update_energy_sources(self, source, value, price, sources={}):
-        grosze = Decimal('0.01')
-        full_price = price*float(value)
-        self._energy_sources[source] = {
+    def _store_remaining_energy(self, remaining_energy):
+        is_energy_surplus = remaining_energy > 0
+        if is_energy_surplus:
+            self._sources_calculators[sources.GRID_SURPLUS].put_energy_to_grid_surplus(
+                remaining_energy
+            )
+
+    def _update_datetime(self, date_time):
+        self._sources_calculators[sources.GRID_SURPLUS].update_datetime(date_time)
+
+    def _update_energy_generated(self, energy_generated):
+        self._sources_calculators[sources.PHOTOVOLTAICS].update_energy_generated(
+            energy_generated
+        )
+
+    def _update_energy_sources_data(self, source, value, price, sources={}):
+        grosze = Decimal("0.01")
+        full_price = price * float(value)
+        self._energy_sources_data[source] = {
             "value": value,
-            "price": Decimal(full_price).quantize(grosze, ROUND_HALF_UP)
+            "price": Decimal(full_price).quantize(grosze, ROUND_HALF_UP),
         }
 
-    def _get_measurements_by_type(self, measurements, type_):
-        return [data for data in measurements if data.device.type==type_]
-
-    def _calculate_energy_sum(self, measurements):
-        return sum([data.energy_value for data in measurements])
-
-    def _bulk_create_daily_measurements(
-        self, measurements: List[EnergyDailyMeasurement]
-    ):
-        return EnergyDailyMeasurement.objects.bulk_create(
-            measurements, ignore_conflicts=True
-        )
-
-    def _download_energy_data_task(self, start_date: datetime, end_date: datetime):
-        serialized_building = BuildingSerializer(self._building).data
-        smart_building = SmartHomeBuilding(serialized_building)
-
-        measurements = []
-        days = [
-            start_date + timedelta(days=x)
-            for x in range((end_date - start_date).days + 1)
-        ]
-        hours = [hour for hour in range(0, 24)]
-        for day in days:
-            for hour in hours:
-                start_datetime = datetime.combine(day, time(hour, 0, 0))
-                end_datetime = datetime.combine(day, time(hour, 59, 59))
-                day_energy_data = smart_building.get_energy_usage(
-                    start_datetime, end_datetime
-                )
-
-                for energy_data in day_energy_data:
-                    device_obj = Device.objects.get(id=energy_data["device_id"])
-                    measurements.append(
-                        EnergyDailyMeasurement(
-                            device=device_obj,
-                            datetime=end_datetime,
-                            energy_value=energy_data.get("energy_value"),
-                        )
-                    )
-        return measurements
-
-    def _download_energy_data_task_tmp(self, start_date: datetime, end_date: datetime):
-        serialized_building = BuildingSerializer(self._building).data
-        smart_building = SmartHomeBuilding(serialized_building)
-
-        measurements = []
-    
-        day_energy_data = smart_building.get_energy_usage(
-            start_date, end_date
-        )
-
-        for energy_data in day_energy_data:
-            device_obj = Device.objects.get(id=energy_data["device_id"])
-            measurements.append(
-                EnergyDailyMeasurement(
-                    device=device_obj,
-                    datetime=end_date,
-                    energy_value=energy_data.get("energy_value"),
-                )
-            )
-        return measurements
+    def _initialize_calculators_for_energy_sources(self):
+        for source, calc in self._sources_calculators.items():
+            self._sources_calculators[source] = calc(self._building)

@@ -276,7 +276,7 @@ class EnergyMeasurementViewSet(
             end_date = validated_data.get("end_date")
             building = validated_data.get("building")
 
-            measurements = BuildingEnergyManager(building).manage_building_energy(
+            measurements = BuildingEnergyManager(building).manage_energy_sources(
                 start_date, end_date
             )
             serializer = EnergyDailyMeasurementSerializer(measurements, many=True)
