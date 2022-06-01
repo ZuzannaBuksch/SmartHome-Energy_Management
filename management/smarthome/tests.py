@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-
+from collections import OrderedDict
 from django.test import TestCase
 from mock import patch
 from rest_framework.test import APIClient
@@ -13,9 +13,9 @@ from .energy_calculators import (EnergyStorageCalculator,
                                  PublicGridEnergyCalculator)
 from .measurements_manager import EnergyMeasurementsManager
 from .models import (Building, EnergyDailyMeasurement, EnergyGenerator,
-                     EnergyReceiver, EnergySurplusLossRaport,
+                     EnergyReceiver, EnergyStorage, EnergySurplusLossRaport,
                      EnergySurplusRaport)
-
+from services.smart_home import SmartHomeStorageChargingAndUsageRaport, SmartHomeChargeStateRaport
 
 class EnergyTestCase(TestCase):
     client = APIClient()
@@ -28,7 +28,7 @@ class EnergyTestCase(TestCase):
         return {
             "building": building,
             "devices": [receiver],
-            "generators": [generator]
+            "generators": [generator],
         }
 
 
@@ -54,7 +54,7 @@ class EnergyTestCase(TestCase):
             }
 
         with patch.object(EnergyMeasurementsManager, '_get_energy_measurements', return_value=measurements):
-            _, source_raport = EnergyMeasurementsManager(building, energy_sources).download_home_energy(start_date, end_date)
+            _, source_raport, _ = EnergyMeasurementsManager(building, energy_sources).download_home_energy(start_date, end_date)
 
             first_raport = source_raport[0]
             photovoltaics_data = first_raport.energy_sources[sources.PHOTOVOLTAICS]
@@ -87,7 +87,7 @@ class EnergyTestCase(TestCase):
                 sources.PUBLIC_GRID: PublicGridEnergyCalculator,
             }
         with patch.object(EnergyMeasurementsManager, '_get_energy_measurements', return_value=measurements):
-            _, source_raport = EnergyMeasurementsManager(building, energy_sources).download_home_energy(start_date, end_date)
+            _, source_raport, _ = EnergyMeasurementsManager(building, energy_sources).download_home_energy(start_date, end_date)
 
             first_raport = source_raport[0]
             photovoltaics_data = first_raport.energy_sources[sources.PHOTOVOLTAICS]
@@ -122,7 +122,7 @@ class EnergyTestCase(TestCase):
                 sources.PUBLIC_GRID: PublicGridEnergyCalculator,
             }
         with patch.object(EnergyMeasurementsManager, '_get_energy_measurements', return_value=measurements):
-            _, source_raport = EnergyMeasurementsManager(building, energy_sources).download_home_energy(start_date, end_date)
+            _, source_raport, _ = EnergyMeasurementsManager(building, energy_sources).download_home_energy(start_date, end_date)
 
             first_raport = source_raport[0]
             photovoltaics_data = first_raport.energy_sources[sources.PHOTOVOLTAICS]
@@ -161,7 +161,7 @@ class EnergyTestCase(TestCase):
                 sources.PUBLIC_GRID: PublicGridEnergyCalculator,
             }
         with patch.object(EnergyMeasurementsManager, '_get_energy_measurements', return_value=measurements):
-            _, source_raport = EnergyMeasurementsManager(building, energy_sources).download_home_energy(start_date, end_date)
+            _, source_raport, _ = EnergyMeasurementsManager(building, energy_sources).download_home_energy(start_date, end_date)
 
             first_raport = source_raport[0]
 
@@ -206,7 +206,7 @@ class EnergyTestCase(TestCase):
                 sources.PUBLIC_GRID: PublicGridEnergyCalculator,
             }
         with patch.object(EnergyMeasurementsManager, '_get_energy_measurements', return_value=measurements):
-            _, source_raport = EnergyMeasurementsManager(building, energy_sources).download_home_energy(start_date, end_date)
+            _, source_raport, _ = EnergyMeasurementsManager(building, energy_sources).download_home_energy(start_date, end_date)
 
             first_raport = source_raport[0]
 
@@ -249,7 +249,7 @@ class EnergyTestCase(TestCase):
                 sources.PUBLIC_GRID: PublicGridEnergyCalculator,
             }
         with patch.object(EnergyMeasurementsManager, '_get_energy_measurements', return_value=measurements):
-            _, source_raport = EnergyMeasurementsManager(building, energy_sources).download_home_energy(start_date, end_date)
+            _, source_raport, _ = EnergyMeasurementsManager(building, energy_sources).download_home_energy(start_date, end_date)
 
             first_raport = source_raport[0]
 
@@ -288,7 +288,7 @@ class EnergyTestCase(TestCase):
                 sources.PUBLIC_GRID: PublicGridEnergyCalculator,
             }
         with patch.object(EnergyMeasurementsManager, '_get_energy_measurements', return_value=measurements):
-            _, source_raport = EnergyMeasurementsManager(building, energy_sources).download_home_energy(start_date, end_date)
+            _, source_raport, _ = EnergyMeasurementsManager(building, energy_sources).download_home_energy(start_date, end_date)
 
             first_raport = source_raport[0]
 
@@ -309,4 +309,118 @@ class EnergyTestCase(TestCase):
             self.assertEqual(surplus.usage_type, EnergySurplusRaport.DEVICES_POWERING)
             self.assertEqual(surplus.value, Decimal("0.0"))
 
+    @patch('smarthome.measurements_manager.EnergyMeasurementsManager._get_energy_measurements')
+    @patch('smarthome.measurements_manager.EnergyMeasurementsManager._get_storage_measurements')
+    @patch('smarthome.measurements_manager.EnergyMeasurementsManager._get_storage_raports')
+    def test_calculate_photovoltaics_and_energy_storage_are_enough(self, mock_raports, mock_storage, mock_measurements):
+        """Energy generated by photovoltaics + energy storage are enough to power every device"""
+
+        db = self.setUpBuildingSinglePhotovoltaics()
+        building = db["building"]
+        receiver = db["devices"][0]
+        generator = db["generators"][0]
+        storage = EnergyStorage.objects.create(name='storage', building=building, capacity=100, battery_voltage=10)
+
         
+        start_date = datetime(2022,3,29, 10,0,0)
+        end_date = datetime(2022,3,29, 10,59,59)
+
+        measurements = [
+            EnergyDailyMeasurement(device=receiver, datetime=end_date,energy_value=10),
+            EnergyDailyMeasurement(device=generator, datetime=end_date,energy_value=5)
+        ]
+
+        storage_measurements = [
+            SmartHomeChargeStateRaport({"device":storage, "date":start_date, "charge_value":storage.capacity})
+        ]
+
+        storage_raports = [
+            # SmartHomeStorageChargingAndUsageRaport(device=storage, date_time_from=start_date, date_time_to=end_date)
+        ]
+        mock_measurements.return_value = measurements
+        mock_storage.return_value = storage_measurements
+        mock_raports.return_value = storage_raports
+
+        energy_sources = OrderedDict([
+                (sources.PHOTOVOLTAICS, PhotovoltaicsEnergyCalculator),
+                (sources.GRID_SURPLUS, GridSurplusEnergyCalculator),
+                (sources.ENERGY_STORAGE, EnergyStorageCalculator),
+                (sources.PUBLIC_GRID, PublicGridEnergyCalculator),
+                ])
+
+        _, source_raport, surpluses = EnergyMeasurementsManager(building, energy_sources).download_home_energy(start_date, end_date)
+
+
+        first_raport = source_raport[0]
+        photovoltaics_data = first_raport.energy_sources[sources.PHOTOVOLTAICS]
+        self.assertEqual(photovoltaics_data["value"],5)
+        self.assertEqual(photovoltaics_data["price"],0)
+
+        grid_surplus_data = first_raport.energy_sources[sources.GRID_SURPLUS]
+        self.assertEqual(grid_surplus_data["value"],0)
+        self.assertEqual(grid_surplus_data["price"],0)
+
+        energy_storage_data = first_raport.energy_sources[sources.ENERGY_STORAGE]
+        self.assertEqual(energy_storage_data["value"],5)
+        self.assertEqual(energy_storage_data["price"],0)
+
+    @patch('smarthome.measurements_manager.EnergyMeasurementsManager._get_energy_measurements')
+    @patch('smarthome.measurements_manager.EnergyMeasurementsManager._get_storage_measurements')
+    @patch('smarthome.measurements_manager.EnergyMeasurementsManager._get_storage_raports')
+    def test_calculate_photovoltaics_is_enough_to_charge_energy_storage(self, mock_raports, mock_storage, mock_measurements):
+        """Energy generated by photovoltaics is enought to power every device and to charge energy storage"""
+
+        db = self.setUpBuildingSinglePhotovoltaics()
+        building = db["building"]
+        receiver = db["devices"][0]
+        generator = db["generators"][0]
+        storage = EnergyStorage.objects.create(name='storage', building=building, capacity=6, battery_voltage=24)
+
+        start_date = datetime(2022,3,29, 10,0,0)
+        end_date = datetime(2022,3,29, 10,59,59)
+
+        measurements = [
+            EnergyDailyMeasurement(device=receiver, datetime=end_date,energy_value=10),
+            EnergyDailyMeasurement(device=generator, datetime=end_date,energy_value=15)
+        ]
+
+        storage_measurements = [
+            SmartHomeChargeStateRaport({"device":storage, "date":start_date, "charge_value":storage.capacity-5})
+        ]
+
+        storage_raports = [
+            # SmartHomeStorageChargingAndUsageRaport(device=storage, date_time_from=start_date, date_time_to=end_date)
+        ]
+        mock_measurements.return_value = measurements
+        mock_storage.return_value = storage_measurements
+        mock_raports.return_value = storage_raports
+
+        energy_sources = OrderedDict([
+                (sources.PHOTOVOLTAICS, PhotovoltaicsEnergyCalculator),
+                (sources.GRID_SURPLUS, GridSurplusEnergyCalculator),
+                (sources.ENERGY_STORAGE, EnergyStorageCalculator),
+                (sources.PUBLIC_GRID, PublicGridEnergyCalculator),
+                ])
+
+        _, source_raport, surpluses = EnergyMeasurementsManager(building, energy_sources).download_home_energy(start_date, end_date)
+
+        first_raport = source_raport[0]
+        photovoltaics_data = first_raport.energy_sources[sources.PHOTOVOLTAICS]
+        self.assertEqual(photovoltaics_data["value"],10)
+        self.assertEqual(photovoltaics_data["price"],0)
+
+        grid_surplus_data = first_raport.energy_sources[sources.GRID_SURPLUS]
+        self.assertEqual(grid_surplus_data["value"],0)
+        self.assertEqual(grid_surplus_data["price"],0)
+
+        energy_storage_data = first_raport.energy_sources[sources.ENERGY_STORAGE]
+        self.assertEqual(energy_storage_data["value"],0)
+        self.assertEqual(energy_storage_data["price"],0)
+
+        first_surplus = surpluses[0]
+        energy_storage_data = first_surplus[sources.ENERGY_STORAGE]
+        expected_storaged_energy = 0.0144
+        self.assertEqual(round(energy_storage_data, 5),expected_storaged_energy)
+
+        grid_surplus_data = first_surplus[sources.GRID_SURPLUS]
+        self.assertEqual(round(grid_surplus_data, 5),5-expected_storaged_energy)

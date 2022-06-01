@@ -8,8 +8,9 @@ class GridSurplusEnergyCalculator(BaseEnergyCalculator):
     def update_datetime(self, value):
         self._date_time = value
 
-    def put_energy_to_grid_surplus(self, energy):
+    def store_energy_surplus(self, energy):
         self._create_new_grid_surplus(EnergySurplusRaport.TRANSFER, abs(energy))
+        return 0
 
     @is_energy_needed
     def calculate_energy_cover(self, energy_demand):
