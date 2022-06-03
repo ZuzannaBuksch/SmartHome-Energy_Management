@@ -35,6 +35,7 @@ class EnergyMeasurementsManager:
 
             self._update_energy_manager_params(current_start, current_end)
             sources, surpluses = self._energy_manager.manage_energy_sources(self._get_energy_demand())
+
             surplus_raports.append(surpluses)
             sources_raports.append(
                 EnergySourcesRaport(
@@ -47,22 +48,26 @@ class EnergyMeasurementsManager:
         return measurements, sources_raports, surplus_raports
 
     def _update_energy_manager_params(self, start_date, end_date):
-        self._update_photovoltaics_energy_generated()
-        self._energy_manager.update_dates_range(start_date, end_date)
 
-        if self._energy_manager.has_source(sources.ENERGY_STORAGE):
-            self._update_storage_energy(start_date, end_date)
+        try:
+            storage_measurements = self._get_storage_measurements(start_date, end_date)
+            storage_measurements = self._filter_correct_datetime_only(storage_measurements, start_date, end_date)
 
-    def _update_storage_energy(self, start_date, end_date):
-        storage_measurements = self._get_storage_measurements(start_date, end_date)
+            storage_usage_raports = self._get_storage_raports(start_date, end_date)
+            storage_usage_raports = self._filter_correct_datetime_only(storage_usage_raports, start_date, end_date)
+        except:
+            storage_usage_raports = []
+            storage_measurements = []
 
-        storage_usage_raports = self._get_storage_raports(start_date, end_date)
-        self._storage_measurements = self._filter_correct_datetime_only(storage_usage_raports, start_date, end_date)
+        home_energy_data = {
+            "start_date": start_date, 
+            "end_date": end_date,
+            "energy_generated": self._get_energy_generated(),
+            "storage_measurements": storage_measurements,
+            "storage_usage_raports": storage_usage_raports,
+        }
+        self._energy_manager.update_home_energy_data(**home_energy_data)
 
-        self._energy_manager.update_storage_energy(storage_measurements, storage_usage_raports)
-
-    def _update_photovoltaics_energy_generated(self):
-        self._energy_manager.update_energy_generated(self._get_energy_generated())
 
     def _filter_correct_datetime_only(self, measurements, start_date, end_date):
         try:

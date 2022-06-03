@@ -5,3 +5,4 @@ class EnergySource(Enum):
     PUBLIC_GRID = "public grid"
     GRID_SURPLUS = "grid surplus"
     ENERGY_STORAGE = "energy storage"
+    ENERGY_EXCHANGE = "energy exchange"

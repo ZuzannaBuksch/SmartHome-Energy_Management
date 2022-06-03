@@ -80,7 +80,7 @@ class EnergyStorage(Device):
 
 class EnergyDailyMeasurement(models.Model):
     datetime = models.DateTimeField(auto_now=False, null=False)
-    energy_value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
+    energy_value = models.FloatField(null=False)
     device = models.ForeignKey(
         Device, on_delete=models.CASCADE, related_name="device_daily_measurements"
     )
@@ -97,7 +97,7 @@ class EnergyDailyMeasurement(models.Model):
 
 class EnergyMeasurement(models.Model):
     date = models.DateField(auto_now=False, null=False)
-    energy_value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
+    energy_value = models.FloatField(null=False)
     device = models.ForeignKey(
         Device, on_delete=models.CASCADE, related_name="device_measurements"
     )
@@ -118,12 +118,11 @@ class ExchangeEnergyStorageRaport(models.Model):
         null=False,
         on_delete=models.CASCADE,
     )
-    total_value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
-    remained_value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
+    total_value = models.FloatField(null=False)
+    remained_value = models.FloatField(null=False)
     purchase_price = models.DecimalField(max_digits=20, decimal_places=10, null=False)
     date_time_from = models.DateTimeField()
     date_time_to = models.DateTimeField()
-
 
 class EnergySurplusLossRaport(models.Model):
     building = models.ForeignKey(
@@ -132,7 +131,7 @@ class EnergySurplusLossRaport(models.Model):
         null=False,
         on_delete=models.CASCADE,
     )
-    value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
+    value = models.FloatField(null=False)
     date_time = models.DateTimeField()
 
 
@@ -152,7 +151,7 @@ class EnergySurplusRaport(models.Model):
         null=False,
         on_delete=models.CASCADE,
     )
-    value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
+    value = models.FloatField(null=False)
     date_time = models.DateTimeField()
 
     def save(self, *args, **kwargs):

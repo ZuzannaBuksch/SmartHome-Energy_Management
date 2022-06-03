@@ -6,6 +6,7 @@ class PriceManager:
         self._photovoltaics_price = 0.0
         self._grid_surplus_price = 0.0
         self._energy_storage_price = 0.0
+        self._energy_exchange_price = 0.6
 
     def get_price_by_source(self, energy_source):
         return {
@@ -13,4 +14,5 @@ class PriceManager:
             sources.GRID_SURPLUS: self._grid_surplus_price,
             sources.ENERGY_STORAGE: self._energy_storage_price,
             sources.PUBLIC_GRID: self._public_grid_price,
+            sources.ENERGY_EXCHANGE: self._energy_exchange_price,
         }.get(energy_source)

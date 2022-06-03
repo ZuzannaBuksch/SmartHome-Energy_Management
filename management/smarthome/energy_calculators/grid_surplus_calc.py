@@ -5,7 +5,7 @@ from .base_calc import BaseEnergyCalculator, is_energy_needed
 class GridSurplusEnergyCalculator(BaseEnergyCalculator):
     _date_time = None
 
-    def update_datetime(self, value):
+    def update_current_datetime(self, value):
         self._date_time = value
 
     def store_energy_surplus(self, energy):
