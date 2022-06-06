@@ -37,7 +37,7 @@ case "$1" in
         docker images | grep none | awk '{print "docker rmi " $3;}' | sh
         ;;
     tests)
-        docker-compose run --rm web python management/manage.py test smarthome.tests
+        docker-compose run --rm web pytest -s
         ;;
     migrate)
         docker-compose run --rm web python management/manage.py makemigrations

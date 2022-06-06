@@ -11,17 +11,19 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
     _storage_devices_data = None
 
     def store_energy_surplus(self, remaining_energy): # FUNKCJA DO ZAŁADOWANIA AKUMULATORA NADWYŻKĄ ENERGII
+        print("remaining in storage is ", remaining_energy)
         for device, data in self._storage_devices_data.items():
             if remaining_energy<=0:
                 break
-
             free_space = device.capacity - data.get("current_capacity")
             if free_space>0:
                 energy_to_store = min(free_space, remaining_energy)
                 energy_stored = self._calculate_storage_charge(device, energy_to_store)
                 data['current_capacity']+=energy_stored
-                remaining_energy-=energy_stored
+                print("max_value to put into storage is ", self._storage_devices_data[device]["max_charge_value_in_time_interval"])
 
+                self._storage_devices_data[device]["max_charge_value_in_time_interval"]-=energy_stored
+                remaining_energy-=energy_stored
         return remaining_energy
 
     @is_energy_needed
@@ -119,9 +121,13 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
         return powerWh / voltage 
 
     def _get_charging_current(self, storage_device):
-        return storage_device.capacity * CURRENT_STORAGE_CHARGING_FACTOR
+        capacity_in_ah = self._KWh_to_Ah(storage_device.capacity, storage_device.battery_voltage)
+        return capacity_in_ah * CURRENT_STORAGE_CHARGING_FACTOR
 
     def _initialize_device_energy_dicts(self, device_data):
+        if self._storage_devices_data:
+            return self._storage_devices_data
+
         devices_data = defaultdict(lambda: {})
         for data in device_data:
             devices_data[data.device] = {}

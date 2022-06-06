@@ -23,7 +23,7 @@ class GridSurplusEnergyCalculator(BaseEnergyCalculator):
             self._create_new_grid_surplus(
                 EnergySurplusRaport.DEVICES_POWERING, surplus_energy_used
             )
-        surplus_cover = current_surplus - energy_demand
+        surplus_cover = surplus_energy_used - energy_demand
         return (
             surplus_energy_used,
             surplus_cover,

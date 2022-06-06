@@ -30,10 +30,12 @@ class EnergyMeasurementsManager:
             current_end = current_start + timedelta(minutes=59, seconds=59)
 
             measurements = self._get_energy_measurements(current_start, current_end)
+
             self._measurements = self._filter_correct_datetime_only(measurements, current_start, current_end)
             measurements.append(self._measurements)
 
             self._update_energy_manager_params(current_start, current_end)
+
             sources, surpluses = self._energy_manager.manage_energy_sources(self._get_energy_demand())
 
             surplus_raports.append(surpluses)
@@ -76,7 +78,10 @@ class EnergyMeasurementsManager:
             try:
                 return [data for data in measurements if data.date <= end_date and data.date >= start_date]
             except AttributeError:
-                return [data for data in measurements if data.date_time_from <= end_date and data.date_time_from >= start_date and data.date_time_to <= end_date and data.date_time_to >=start_date]
+                try:
+                    return [data for data in measurements if data.date_time_from <= end_date and data.date_time_from >= start_date and data.date_time_to <= end_date and data.date_time_to >=start_date]
+                except AttributeError:
+                    return [data for data in measurements if data.date_time <= end_date and data.date_time >= start_date]
 
 
     def _bulk_create_daily_measurements(
@@ -100,6 +105,7 @@ class EnergyMeasurementsManager:
         return sum([data.energy_value for data in measurements])
 
     def _get_measurements_by_type(self, type_):
+        print(self._measurements)
         return [data for data in self._measurements if data.device.type == type_]
 
     def _days_hours_minutes(self, td):
