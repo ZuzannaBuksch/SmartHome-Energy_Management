@@ -4,8 +4,10 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict
 
 from .constants import EnergySource as sources
-from .energy_calculators import ExchangeEnergyClassifier, sources_calculators
+from .energy_calculators import sources_calculators
 from .energy_calculators.calculators_sources import get_by_value
+from .energy_calculators import sources_calculators
+from .exchange_classifiers import ExchangeEnergyClassifier
 from .price_manager import PriceManager
 
 

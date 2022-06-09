@@ -159,7 +159,7 @@ class EnergySurplusRaport(models.Model):
             current_value = EnergySurplusRaport.objects.filter(building=self.building).last().value
         except AttributeError:
             current_value = 0
-
+        
         if self.value<=0 and self.usage_type == EnergySurplusRaport.BATTERY_CHARGING:
                 return
 
@@ -187,6 +187,17 @@ class EnergySourcesRaport(models.Model):
     energy_sources = JSONField(null=False)
     date_time_from = models.DateTimeField()
     date_time_to = models.DateTimeField()
+
+class PhotovoltaicsSufficiencyRaport(models.Model):
+    building = models.ForeignKey(
+        Building,
+        related_name="building_photovoltaics_sufficiency_raports",
+        null=False,
+        on_delete=models.CASCADE,
+    )
+    sufficiency_percentage = models.FloatField(null=False)
+    date_time = models.DateTimeField()
+
 
 class Schedule(models.Model):
     building = models.ForeignKey(

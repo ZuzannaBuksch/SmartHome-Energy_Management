@@ -27,3 +27,4 @@ mock
 parameterized==0.8.1
 pytest-django
 pytest
+pandas==1.4.2

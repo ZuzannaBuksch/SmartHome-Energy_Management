@@ -8,14 +8,14 @@ from services.smart_home import SmartHomeBuilding, SmartHomeEnergyStorage
 from .energy_calculators import sources_calculators
 from .constants import EnergySource as sources
 from .energy_manager import BuildingEnergyManager
-from .models import (Device, EnergyDailyMeasurement, EnergyGenerator,
+from .models import (Device, EnergyDailyMeasurement, EnergyGenerator, PhotovoltaicsSufficiencyRaport,
                      EnergyReceiver, EnergySourcesRaport)
 
 
 class EnergyMeasurementsManager:
     def __init__(self, building, energy_sources=sources_calculators):
         self._building = building
-        self.measurements = None
+        self._measurements = None
         self._energy_manager = BuildingEnergyManager(self._building, energy_sources)
 
     def download_home_energy(self, start_date, end_date):
@@ -25,6 +25,7 @@ class EnergyMeasurementsManager:
         sources_raports = []
         surplus_raports = []
         measurements = []
+        sufficiency_raports = []
         for hour in range(int(diff_in_time_windows)):
             current_start = start_date + timedelta(hours=hour)
             current_end = current_start + timedelta(minutes=59, seconds=59)
@@ -32,9 +33,12 @@ class EnergyMeasurementsManager:
             measurements = self._get_energy_measurements(current_start, current_end)
 
             self._measurements = self._filter_correct_datetime_only(measurements, current_start, current_end)
-            measurements.append(self._measurements)
+            measurements+=self._measurements
 
             self._update_energy_manager_params(current_start, current_end)
+
+            sufficiency_raport = self._get_photovoltaics_sufficiency_raport(current_end)
+            sufficiency_raports.append(sufficiency_raport)
 
             sources, surpluses = self._energy_manager.manage_energy_sources(self._get_energy_demand())
 
@@ -47,6 +51,8 @@ class EnergyMeasurementsManager:
                     energy_sources=sources,
                 )
             )
+        self._bulk_create_daily_measurements(measurements)
+        self._bulk_create_photovoltaics_sufficiency_raports(sufficiency_raports)
         return measurements, sources_raports, surplus_raports
 
     def _update_energy_manager_params(self, start_date, end_date):
@@ -91,6 +97,13 @@ class EnergyMeasurementsManager:
             measurements, ignore_conflicts=True
         )
 
+    def _bulk_create_photovoltaics_sufficiency_raports(
+        self, sufficiency_raports: List[PhotovoltaicsSufficiencyRaport]
+        ):
+        return PhotovoltaicsSufficiencyRaport.objects.bulk_create(
+            sufficiency_raports, ignore_conflicts=True
+        )
+
     def _get_energy_demand(self):
         return 0 - self._calculate_energy_sum(
             self._get_measurements_by_type(EnergyReceiver.__name__)
@@ -110,6 +123,12 @@ class EnergyMeasurementsManager:
     def _days_hours_minutes(self, td):
         time_diff = namedtuple("TimeDiff", "days hours minutes")
         return time_diff(td.days, td.seconds // 3600, (td.seconds // 60) % 60)
+
+    def _get_photovoltaics_sufficiency_raport(self, date_time):
+        energy_need = self._get_energy_demand()
+        energy_generated = self._get_energy_generated()
+        percentage_sufficiency = 100*energy_generated/energy_need
+        return PhotovoltaicsSufficiencyRaport(building=self._building, sufficiency_percentage=percentage_sufficiency, date_time=date_time)
 
     def _get_storage_measurements(self, start_date: datetime, end_date: datetime):
         smart_building = SmartHomeBuilding(model_to_dict(self._building))

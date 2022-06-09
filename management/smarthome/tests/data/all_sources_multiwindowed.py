@@ -34,7 +34,7 @@ multiwindowed_all_sources_home_setups_list = [
 
                 }
             },
-            { #SECOND TIME WINDOW,  na giełdzie zostało 4.9856 - 0.0144 
+            { #SECOND TIME WINDOW, 
                 "receiver_energy": 4,
                 "generator_energy": 0,
                 "sources": {
@@ -57,6 +57,7 @@ multiwindowed_all_sources_home_setups_list = [
 
                 }
             },
+            
 
         ]
     },
