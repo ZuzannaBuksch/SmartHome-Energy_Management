@@ -13,6 +13,10 @@ class EnergyExchangeCalculator(BaseEnergyCalculator):
         self._exchange_storage.remained_value = remaining_energy
         self._exchange_storage.save(update_fields=["remained_value"])
 
+    def update_remained_energy(self, remaining_energy):
+        self._exchange_storage.remained_value = remaining_energy
+        self._exchange_storage.save(update_fields=["remained_value"])
+
     @is_energy_needed
     def calculate_energy_cover(self, energy_demand):
         surplus_energy_used, surplus_cover = 0, energy_demand
