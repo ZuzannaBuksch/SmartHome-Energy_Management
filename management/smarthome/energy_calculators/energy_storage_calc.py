@@ -19,7 +19,6 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
             if free_space>0:
                 energy_to_store = min(free_space, remaining_energy)
                 energy_stored = self._calculate_storage_charge(device, energy_to_store)
-                data['current_capacity']+=energy_stored
                 print("max_value to put into storage is ", self._storage_devices_data[device]["max_charge_value_in_time_interval"])
 
                 self._storage_devices_data[device]["max_charge_value_in_time_interval"]-=energy_stored
@@ -28,6 +27,8 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
 
     @is_energy_needed
     def calculate_energy_cover(self, energy_demand): # FUNKCJA DO UŻYCIA ENERGII Z AKUMULATORA DO ZASILENIA DOMU
+        print("\nhirki  00")
+        print(self._storage_devices_data)
         total_storage_energy_used, storage_cover = 0, energy_demand
         energy_demand = abs(energy_demand)
 
@@ -41,7 +42,6 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
                 total_storage_energy_used += storage_energy_used
                 storage_cover = storage_energy_used - energy_demand
                 energy_demand-=storage_energy_used
-                data['current_capacity']-=storage_energy_used
 
         return total_storage_energy_used, storage_cover #informacja czy energii z magazynu wystarczyło na pokrycie wszystkiego
     
@@ -84,13 +84,14 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
     def _calculate_storage_charge(self, storage, energy_to_store):
         max_charge_value = self._storage_devices_data[storage]["max_charge_value_in_time_interval"]
         storage_energy_used = min(energy_to_store, max_charge_value)
-        self._create_new_storage_usage_raport(storage, self._start_datetime, self._end_datetime, JobType.CHARGING)
+        self._set_device_current_capacity(storage, storage_energy_used)
         return storage_energy_used
 
     def _calculate_storage_usage(self, device, energy_to_use):
         current_capacity = self._get_device_current_capacity(device)
         storage_energy_used = min(current_capacity, energy_to_use)
-        self._create_new_storage_usage_raport(device, self._start_datetime, self._end_datetime, JobType.USAGE)
+        print("używamy ze storage ", storage_energy_used)
+        self._set_device_current_capacity(device, 0-storage_energy_used)
         return storage_energy_used
 
     def _create_new_storage_usage_raport(self, device, start, end, job_type):
@@ -103,6 +104,17 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
             return max([elem.date for elem in usages_raports])
         except ValueError:
             return self._start_datetime
+
+    def _set_device_current_capacity(self, storage_device, energy_used):
+        current_capacity = self._get_device_current_capacity(storage_device)
+        new_capacity = current_capacity+energy_used
+        print(f"current capacity={current_capacity} + energy_used={energy_used}  =  new_capacity={new_capacity}")
+        if new_capacity > current_capacity:
+            job_type = JobType.CHARGING
+        else: 
+            job_type = JobType.USAGE
+        self._create_new_storage_usage_raport(storage_device, self._start_datetime, self._end_datetime, job_type)
+        self._storage_devices_data[storage_device]["current_capacity"] = new_capacity
 
     def _get_device_current_capacity(self, storage_device):
         current_capacity = self._storage_devices_data[storage_device]["current_capacity"] 

@@ -1,10 +1,10 @@
+from collections import defaultdict
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict
-from collections import defaultdict
 
 from .constants import EnergySource as sources
-from .energy_calculators import sources_calculators, ExchangeEnergyClassifier
+from .energy_calculators import ExchangeEnergyClassifier, sources_calculators
 from .energy_calculators.calculators_sources import get_by_value
 from .price_manager import PriceManager
 
@@ -49,7 +49,7 @@ class BuildingEnergyManager:
 
         available_exchange = self._has_source(sources.ENERGY_EXCHANGE)
         if available_exchange:
-            available_exchange.update_current_datetime(end_date)
+            available_exchange.update_current_datetime(start_date, end_date)
 
     def _use_energy_from_sources(self, energy_demand):
         energy_missing = energy_demand
@@ -79,16 +79,18 @@ class BuildingEnergyManager:
                 available_storage = self._sources_calculators.get(sources.ENERGY_STORAGE)
                 if available_storage:
                     energy_to_store = remaining_energy
+                    print(f"wanting to store remaining={remaining_energy} from exchange into storage")
                     remaining_energy = available_storage.store_energy_surplus(remaining_energy)
+                    print(f"stored {energy_to_store} - {remaining_energy} = {energy_to_store-remaining_energy}")
                     stored_energy = energy_to_store - remaining_energy
                     exchange_calc.update_remained_energy(remaining_energy)
                     self._energy_surplus_data[sources.ENERGY_STORAGE] += stored_energy
                     energy_price = self._price_manager.get_price_by_source(sources.ENERGY_EXCHANGE)
                     self._update_energy_sources_data(sources.ENERGY_EXCHANGE, stored_energy, energy_price)
-            
             if self._is_energy_surplus(remaining_energy):
-                exchange_ends_in = (available_exchange_energy.date_time_to - self._datetime_to).seconds/60
-                if  exchange_ends_in < 20:
+                exchange_ends_in = (available_exchange_energy.date_time_to - self._datetime_to).total_seconds()/60
+                print("exchange ends in ", exchange_ends_in)
+                if  exchange_ends_in < 20 and exchange_ends_in >= 0: #ends in less than 20 minutes but hasnt ended yet
                     self._store_exchange_remaining_energy_into_grid_surplus(remaining_energy)
 
     def _store_remaining_energy(self, remaining_energy):
@@ -97,6 +99,8 @@ class BuildingEnergyManager:
         available_storage = self._sources_calculators.get(sources.ENERGY_STORAGE)
         print("in storing part remaining is ", remaining_energy, "and storage is ", available_storage)
         if available_storage:
+            print("\nhirki")
+            print(available_storage._storage_devices_data)
             if self._is_energy_surplus(remaining_energy):
                 print("remaining energy before store ", remaining_energy)
                 start = remaining_energy
@@ -149,7 +153,9 @@ class BuildingEnergyManager:
         energy_to_store = remaining_energy
         remaining_energy = grid_surplus.store_energy_surplus(remaining_energy)
         stored_energy = energy_to_store - remaining_energy
-        self._energy_surplus_data[sources.GRID_SURPLUS] += stored_energy    
+        print(f"before storing exchange surplus={stored_energy} in grid surplus grid_surplus is {self._energy_surplus_data[sources.GRID_SURPLUS]}")
+        self._energy_surplus_data[sources.GRID_SURPLUS] += stored_energy
+        print(f"after storing exchange surplus={stored_energy} in grid surplus grid_surplus is {self._energy_surplus_data[sources.GRID_SURPLUS]}")
 
     def _update_energy_sources_data(self, source, value, price):
         grosze = Decimal("0.01")

@@ -3,10 +3,12 @@ from .base_calc import BaseEnergyCalculator, is_energy_needed
 
 
 class EnergyExchangeCalculator(BaseEnergyCalculator):
-    _date_time = None
+    _date_time_from = None
+    _date_time_to = None
 
-    def update_current_datetime(self, date_time):
-        self._date_time = date_time
+    def update_current_datetime(self, date_time_from, date_time_to):
+        self._date_time_from = date_time_from
+        self._date_time_to = date_time_to
         self._exchange_storage = self.get_current_exchange_storage()
 
     def update_remained_energy(self, remaining_energy):
@@ -38,7 +40,12 @@ class EnergyExchangeCalculator(BaseEnergyCalculator):
                 ExchangeEnergyStorageRaport.objects.filter(building=self._building)
                 .latest("date_time_to")
             )
+            print(self._date_time_from, self._date_time_to)
+            print(raport.date_time_from, raport.date_time_to)
         except ExchangeEnergyStorageRaport.DoesNotExist:
             return
-        if raport.date_time_to >= self._date_time and raport.remained_value>0: #TODO not sure about time_to 
+        exchange_range_gt_current_timestamp = raport.date_time_from <= self._date_time_from and raport.date_time_to >= self._date_time_to
+        exchange_started_after_start = raport.date_time_from >= self._date_time_from and raport.date_time_from <= self._date_time_to
+        exchange_ended_before_end = raport.date_time_to >= self._date_time_from and raport.date_time_to < self._date_time_to
+        if  (exchange_range_gt_current_timestamp or exchange_started_after_start or exchange_ended_before_end) and raport.remained_value>0:
             return raport
