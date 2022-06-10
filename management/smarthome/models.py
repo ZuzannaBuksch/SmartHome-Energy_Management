@@ -71,7 +71,7 @@ class EnergyGenerator(Device):
 
 
 class EnergyStorage(Device):
-    capacity = models.FloatField()  # [Ah]
+    capacity = models.FloatField()  # [kWh]
     battery_voltage = models.FloatField(null=True, blank=True)
 
     def __str__(self):
@@ -80,7 +80,7 @@ class EnergyStorage(Device):
 
 class EnergyDailyMeasurement(models.Model):
     datetime = models.DateTimeField(auto_now=False, null=False)
-    energy_value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
+    energy_value = models.FloatField(null=False)
     device = models.ForeignKey(
         Device, on_delete=models.CASCADE, related_name="device_daily_measurements"
     )
@@ -97,7 +97,7 @@ class EnergyDailyMeasurement(models.Model):
 
 class EnergyMeasurement(models.Model):
     date = models.DateField(auto_now=False, null=False)
-    energy_value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
+    energy_value = models.FloatField(null=False)
     device = models.ForeignKey(
         Device, on_delete=models.CASCADE, related_name="device_measurements"
     )
@@ -118,12 +118,11 @@ class ExchangeEnergyStorageRaport(models.Model):
         null=False,
         on_delete=models.CASCADE,
     )
-    total_value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
-    remained_value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
+    total_value = models.FloatField(null=False)
+    remained_value = models.FloatField(null=False)
     purchase_price = models.DecimalField(max_digits=20, decimal_places=10, null=False)
     date_time_from = models.DateTimeField()
     date_time_to = models.DateTimeField()
-
 
 class EnergySurplusLossRaport(models.Model):
     building = models.ForeignKey(
@@ -132,7 +131,7 @@ class EnergySurplusLossRaport(models.Model):
         null=False,
         on_delete=models.CASCADE,
     )
-    value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
+    value = models.FloatField(null=False)
     date_time = models.DateTimeField()
 
 
@@ -152,16 +151,16 @@ class EnergySurplusRaport(models.Model):
         null=False,
         on_delete=models.CASCADE,
     )
-    value = models.DecimalField(max_digits=10, decimal_places=3, null=False)
+    value = models.FloatField(null=False)
     date_time = models.DateTimeField()
 
     def save(self, *args, **kwargs):
         try:
-            current_value = EnergySurplusRaport.objects.filter(building=self.building).latest('date_time').value
-        except EnergySurplusRaport.DoesNotExist:
+            current_value = EnergySurplusRaport.objects.filter(building=self.building).last().value
+        except AttributeError:
             current_value = 0
 
-        if self.value<=0:
+        if self.value<=0 and self.usage_type == EnergySurplusRaport.BATTERY_CHARGING:
                 return
 
         if self.usage_type == EnergySurplusRaport.TRANSFER:
@@ -169,6 +168,7 @@ class EnergySurplusRaport(models.Model):
             value_loss = 0.2*float(self.value)
             EnergySurplusLossRaport.objects.create(value=value_loss, building=self.building, date_time=self.date_time)
             self.value = float(current_value)+value_to_grid
+            print(f'value is {current_value} + {value_to_grid} = {self.value}')
         else:
             self.value = current_value-self.value
         return super().save(*args, **kwargs)

@@ -10,11 +10,12 @@ class SmartHomeDeviceRaport(SmartHomeObject):
     def __init__(self, data: Mapping[str, Any], *args, **kwargs):
         self.id = data.get("id")
         try:
-            self.turned_on = datetime.strptime(data.get("turned_on"),"%Y-%m-%d %H:%M:%S")
-            self.turned_off = datetime.strptime(data.get("turned_off"),"%Y-%m-%d %H:%M:%S")
+            self.turned_on = datetime.strptime(data.get("turned_on"),"%Y-%m-%dT%H:%M:%S")
+            self.turned_off = datetime.strptime(data.get("turned_off"),"%Y-%m-%dT%H:%M:%S")
         except TypeError:
             self.turned_on = data.get("turned_on")
             self.turned_off = data.get("turned_off")
+        self.device = data.get("device")
         super().__init__(*args, **kwargs)
 
     def asdict(self):
@@ -36,12 +37,13 @@ class SmartHomeStorageChargingAndUsageRaport(SmartHomeObject):
     def __init__(self, data: Mapping[str, Any], *args, **kwargs):
         self.id = data.get("id")
         try:
+            self.date_time_from = datetime.strptime(data.get("date_time_from"),"%Y-%m-%dT%H:%M:%S")
+            self.date_time_to = datetime.strptime(data.get("date_time_to"),"%Y-%m-%dT%H:%M:%S")
+        except TypeError:
             self.date_time_from = data.get("date_time_from")
             self.date_time_to = data.get("date_time_to")
-        except TypeError:
-            self.date_time_from = datetime.strptime(data.get("date_time_from"),"%Y-%m-%d %H:%M:%S")
-            self.date_time_to = datetime.strptime(data.get("date_time_to"),"%Y-%m-%d %H:%M:%S")
         self.job_type = data.get("job_type")
+        self.device = data.get("device")
         super().__init__(*args, **kwargs)
 
     def asdict(self):
@@ -58,8 +60,9 @@ class SmartHomeChargeStateRaport(SmartHomeObject):
 
     def __init__(self, data: Mapping[str, Any], *args, **kwargs):
         self.id = data.get("id")
+        self.device = data.get("device")
         try:
-            self.date = datetime.strptime(data.get("date"),"%Y-%m-%d %H:%M:%S")
+            self.date = datetime.strptime(data.get("date"),"%Y-%m-%dT%H:%M:%S")
         except TypeError:
             self.date = data.get("date")
         self.charge_value = data.get("charge_value")

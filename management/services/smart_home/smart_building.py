@@ -99,6 +99,6 @@ class SmartHomeBuilding(SmartHomeObject):
                         "date": end_date,
                     }
                 )
-            except Device.DoesNotExists:
+            except Device.DoesNotExist:
                 pass
         return energy_measurements
