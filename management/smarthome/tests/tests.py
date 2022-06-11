@@ -22,9 +22,6 @@ from smarthome.models import (Building, EnergyDailyMeasurement,
                               ExchangeEnergyStorageRaport)
 from users.models import User
 
-<<<<<<< HEAD
-from .data import photovoltaics_only_home_setups_list, storage_home_setups_list, exchange_home_setups_list, multiwindowed_photovoltaics_home_setups_list
-=======
 from .data import (
     exchange_home_setups_list,
     multiwindowed_all_sources_and_exchange_energy_in_first_window_home_setups_list,
@@ -33,7 +30,6 @@ from .data import (
     multiwindowed_photovoltaics_home_setups_list,
     multiwindowed_photovoltaics_storage_home_setups_list,
     photovoltaics_only_home_setups_list, storage_home_setups_list)
->>>>>>> fd35008... [M-16] Add test cases for all sources multiwindowed
 
 
 @pytest.mark.django_db
@@ -495,19 +491,19 @@ class TestEnergy:
             assert round(public_grid_data["value"],5) == public_grid_value
             assert public_grid_data["price"] == self._get_energy_price(public_grid_value, public_grid_price)
 
-            first_surplus_raport = surplus_raport[i]
+            next_surplus_raport = surplus_raport[i]
             home_surpluses_data = window_setup.get("surpluses", {})
 
             grid_surplus = home_surpluses_data.get(sources.GRID_SURPLUS, {})
             surplus_iteration_value = grid_surplus.get("surplus_iteration_value_transfered", 0)
 
-            grid_surplus_data = first_surplus_raport[sources.GRID_SURPLUS]
+            grid_surplus_data = next_surplus_raport[sources.GRID_SURPLUS]
             assert round(grid_surplus_data, 5) == surplus_iteration_value
 
             storage_surplus = home_surpluses_data.get(sources.ENERGY_STORAGE, {})
             iteration_energy_stored = storage_surplus.get("iteration_energy_stored", 0)
             total_energy_in_storage = storage_surplus.get("total_energy_in_storage")
-            storage_surplus_data = first_surplus_raport[sources.ENERGY_STORAGE]
+            storage_surplus_data = next_surplus_raport[sources.ENERGY_STORAGE]
             
             assert round(storage_surplus_data, 5) == round(iteration_energy_stored, 5)
 

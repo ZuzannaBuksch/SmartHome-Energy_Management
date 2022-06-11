@@ -15,10 +15,6 @@ class EnergyExchangeCalculator(BaseEnergyCalculator):
         self._exchange_storage.remained_value = remaining_energy
         self._exchange_storage.save(update_fields=["remained_value"])
 
-    def update_remained_energy(self, remaining_energy):
-        self._exchange_storage.remained_value = remaining_energy
-        self._exchange_storage.save(update_fields=["remained_value"])
-
     @is_energy_needed
     def calculate_energy_cover(self, energy_demand):
         surplus_energy_used, surplus_cover = 0, energy_demand
@@ -40,8 +36,6 @@ class EnergyExchangeCalculator(BaseEnergyCalculator):
                 ExchangeEnergyStorageRaport.objects.filter(building=self._building)
                 .latest("date_time_to")
             )
-            print(self._date_time_from, self._date_time_to)
-            print(raport.date_time_from, raport.date_time_to)
         except ExchangeEnergyStorageRaport.DoesNotExist:
             return
         exchange_range_gt_current_timestamp = raport.date_time_from <= self._date_time_from and raport.date_time_to >= self._date_time_to

@@ -11,7 +11,6 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
     _storage_devices_data = None
 
     def store_energy_surplus(self, remaining_energy): # FUNKCJA DO ZAŁADOWANIA AKUMULATORA NADWYŻKĄ ENERGII
-        print("remaining in storage is ", remaining_energy)
         for device, data in self._storage_devices_data.items():
             if remaining_energy<=0:
                 break
@@ -19,7 +18,6 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
             if free_space>0:
                 energy_to_store = min(free_space, remaining_energy)
                 energy_stored = self._calculate_storage_charge(device, energy_to_store)
-                print("max_value to put into storage is ", self._storage_devices_data[device]["max_charge_value_in_time_interval"])
 
                 self._storage_devices_data[device]["max_charge_value_in_time_interval"]-=energy_stored
                 remaining_energy-=energy_stored
@@ -27,8 +25,6 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
 
     @is_energy_needed
     def calculate_energy_cover(self, energy_demand): # FUNKCJA DO UŻYCIA ENERGII Z AKUMULATORA DO ZASILENIA DOMU
-        print("\nhirki  00")
-        print(self._storage_devices_data)
         total_storage_energy_used, storage_cover = 0, energy_demand
         energy_demand = abs(energy_demand)
 
@@ -90,7 +86,6 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
     def _calculate_storage_usage(self, device, energy_to_use):
         current_capacity = self._get_device_current_capacity(device)
         storage_energy_used = min(current_capacity, energy_to_use)
-        print("używamy ze storage ", storage_energy_used)
         self._set_device_current_capacity(device, 0-storage_energy_used)
         return storage_energy_used
 
@@ -108,7 +103,6 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
     def _set_device_current_capacity(self, storage_device, energy_used):
         current_capacity = self._get_device_current_capacity(storage_device)
         new_capacity = current_capacity+energy_used
-        print(f"current capacity={current_capacity} + energy_used={energy_used}  =  new_capacity={new_capacity}")
         if new_capacity > current_capacity:
             job_type = JobType.CHARGING
         else: 
