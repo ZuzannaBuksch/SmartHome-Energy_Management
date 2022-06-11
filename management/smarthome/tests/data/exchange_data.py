@@ -470,7 +470,7 @@ exchange_home_setups_list = [
                 },
             "surpluses": {
                 sources.GRID_SURPLUS : {
-                    "usage_type": EnergySurplusRaport.DEVICES_POWERING, #TODO this is wrong! we charging battery not supply devices!
+                    "usage_type": EnergySurplusRaport.DEVICES_POWERING, 
                     "surplus_total_value": 0,
                     "surplus_iteration_value_transfered": 0,
                     },
@@ -502,7 +502,7 @@ exchange_home_setups_list = [
                 },
             "surpluses": {
                 sources.GRID_SURPLUS : {
-                    "usage_type": EnergySurplusRaport.DEVICES_POWERING, #TODO this is wrong! we charging battery not supply devices!
+                    "usage_type": EnergySurplusRaport.DEVICES_POWERING, 
                     "surplus_total_value": 0,
                     "surplus_iteration_value_transfered": 0,
                     },
@@ -564,7 +564,7 @@ exchange_home_setups_list = [
                 },
             "surpluses": {
                 sources.GRID_SURPLUS : {
-                    "usage_type": EnergySurplusRaport.DEVICES_POWERING, #TODO this is wrong! we charging battery not supply devices!
+                    "usage_type": EnergySurplusRaport.BATTERY_CHARGING, 
                     "surplus_total_value": 0,
                     "surplus_iteration_value_transfered": 0.0,
                     },
@@ -595,7 +595,7 @@ exchange_home_setups_list = [
                 },
             "surpluses": {
                 sources.GRID_SURPLUS : {
-                    "usage_type": EnergySurplusRaport.DEVICES_POWERING, #TODO this is wrong! we charging battery not supply devices!
+                    "usage_type": EnergySurplusRaport.BATTERY_CHARGING, 
                     "surplus_total_value": 0,
                     "surplus_iteration_value_transfered": 0.0,
                     },
@@ -659,7 +659,7 @@ exchange_home_setups_list = [
                 },
             "surpluses": {
                 sources.GRID_SURPLUS : {
-                    "usage_type": EnergySurplusRaport.DEVICES_POWERING, #TODO this is wrong! we charging battery not supply devices!
+                    "usage_type": EnergySurplusRaport.BATTERY_CHARGING, 
                     "surplus_total_value": 3.1,
                     "surplus_iteration_value_transfered": 0.0,
                     },
@@ -772,9 +772,9 @@ exchange_home_setups_list = [
      { #x6) Our storage is 100% charged - we also have surplus from PV's and from grid + exchange. Receiver energy is lower than generator energy
         "storage_capacity": 6,
         "storage_voltage": 24,
-        "initial_grid_surplus_value": 2,
+        "initial_grid_surplus_value": 2, #1.6
         "initial_storage_charge_value": 6, 
-        "exchange_total_value": 2,
+        "exchange_total_value": 2, 
         "exchange_remained_value": 2,
         "first_window": {
             "receiver_energy": 5,
@@ -791,7 +791,7 @@ exchange_home_setups_list = [
                     "usage_type": EnergySurplusRaport.TRANSFER,
                     "surplus_total_value": 7.2,
                     "surplus_iteration_value_transfered": 7,
-                    "energy_loss": 1, #TODO nie uwzglednia energii traconej z gieldy - powinno byc 1.4
+                    "energy_loss": 1.4,
                     },
                 sources.ENERGY_STORAGE : {
                     "iteration_energy_stored": 0,

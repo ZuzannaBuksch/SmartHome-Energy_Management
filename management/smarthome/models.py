@@ -166,9 +166,13 @@ class EnergySurplusRaport(models.Model):
         if self.usage_type == EnergySurplusRaport.TRANSFER:
             value_to_grid = 0.8*float(self.value)
             value_loss = 0.2*float(self.value)
-            EnergySurplusLossRaport.objects.create(value=value_loss, building=self.building, date_time=self.date_time)
+            try:
+                loss = EnergySurplusLossRaport.objects.get(building=self.building, date_time=self.date_time)
+                loss.value+=value_loss
+                loss.save(update_fields=["value"])
+            except EnergySurplusLossRaport.DoesNotExist:
+                EnergySurplusLossRaport.objects.create(value=value_loss, building=self.building, date_time=self.date_time)
             self.value = float(current_value)+value_to_grid
-            print(f'value is {current_value} + {value_to_grid} = {self.value}')
         else:
             self.value = current_value-self.value
         return super().save(*args, **kwargs)
