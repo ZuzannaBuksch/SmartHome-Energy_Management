@@ -13,15 +13,16 @@ class GridSurplusEnergyCalculator(BaseEnergyCalculator):
         return 0
 
     @is_energy_needed
-    def calculate_energy_cover(self, energy_demand):
+    def calculate_energy_cover(self, energy_demand, battery_charging=False):
         surplus_energy_used, surplus_cover = 0, energy_demand
         energy_demand = abs(energy_demand)
 
         current_surplus = self._get_current_grid_surplus()
         if current_surplus > 0:
             surplus_energy_used = min(current_surplus, energy_demand)
+            usage = EnergySurplusRaport.BATTERY_CHARGING if battery_charging else EnergySurplusRaport.DEVICES_POWERING
             self._create_new_grid_surplus(
-                EnergySurplusRaport.DEVICES_POWERING, surplus_energy_used
+                usage, surplus_energy_used
             )
         surplus_cover = surplus_energy_used - energy_demand
         return (
@@ -33,10 +34,10 @@ class GridSurplusEnergyCalculator(BaseEnergyCalculator):
         try:
             return (
                 EnergySurplusRaport.objects.filter(building=self._building)
-                .latest("date_time")
+                .last()
                 .value
             )
-        except EnergySurplusRaport.DoesNotExist:
+        except AttributeError:
             return 0
 
     def _create_new_grid_surplus(self, type_, value):

@@ -105,7 +105,6 @@ class EnergyMeasurementsManager:
         return sum([data.energy_value for data in measurements])
 
     def _get_measurements_by_type(self, type_):
-        print(self._measurements)
         return [data for data in self._measurements if data.device.type == type_]
 
     def _days_hours_minutes(self, td):
