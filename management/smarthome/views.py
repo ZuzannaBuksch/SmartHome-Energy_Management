@@ -1,105 +1,38 @@
-import json
 from collections import defaultdict
-from copy import deepcopy
-import datetime
-
-from django.db import transaction
+from datetime import datetime
 from django.forms.models import model_to_dict
+from django.db.models import Q
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, mixins, status, viewsets
 from rest_framework.permissions import AllowAny
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from services.smart_home import (SmartHomeBuilding, SmartHomeDevice,
-                                 SmartHomeDeviceRaport,
-                                 SmartHomeEnergyGenerator,
+from services.smart_home import (SmartHomeEnergyGenerator,
                                  SmartHomeEnergyReceiver,
-                                 SmartHomeEnergyStorage, SmartHomeUser)
-from services.smart_home.smart_raport import (
-    JobType, SmartHomeChargeStateRaport, SmartHomeStorageChargingAndUsageRaport)
-from users.models import User
+                                 SmartHomeEnergyStorage)
 
-from .energy_manager import BuildingEnergyManager
-from .models import (Building, Device, EnergyDailyMeasurement, EnergyGenerator,
-                     EnergyReceiver, EnergyStorage, Floor, Room)
-from .serializers import (BuildingListSerializer, BuildingSerializer,
+from data_providers import WeatherDataProvider
+from .measurements_manager import EnergyMeasurementsManager
+from .models import (Building, Device, EnergyDailyMeasurement, EnergyGenerator, EnergyMeasurement,
+                     EnergyReceiver, EnergySourcesRaport, EnergyStorage, EnergySurplusLossRaport, EnergySurplusRaport, ExchangeEnergyStorageRaport, Floor, PhotovoltaicsSufficiencyRaport, Room)
+from .serializers import (BuildingListSerializer, BuildingSerializer, DateRangeSerializer,
                           DeviceSerializer, EnergyDailyMeasurementSerializer,
-                          EnergyDailyMeasurementViewSerializer, RoomSerializer)
+                          DateTimeRangeSerializer, EnergyMeasurementSerializer, EnergySourcesRaportSerializer, EnergySurplusLossRaportSerializer, EnergySurplusRaportSerializer, ExchangeEnergyStorageRaportSerializer, PhotovoltaicsSufficiencyRaportSerializer, RoomSerializer)
 
 
-class BuildingFromJsonFileViewSet(viewsets.ModelViewSet):
-    queryset = Building.objects.all()
-    serializer_class = BuildingSerializer
-    permission_classes = [
-        AllowAny,
-    ]
 
-    @transaction.atomic
-    def create(self, request):
-        # device = Device.objects.get(id=33)
-        # smart_device = SmartHomeEnergyStorage(device.__dict__)
-        # # raport = SmartHomeStorageChargingAndUsageRaport({"date_time_from": "2022-05-09 14:05:02", "date_time_to": "2022-05-09 14:06:02", "job_type": JobType.CHARGING.value})
 
-        # resp = smart_device.get_raports(
-        #     start_date=datetime(2022, 5, 9, 0, 0, 0),
-        #     end_date=datetime(2022, 5, 9, 23, 59, 59),
-        # )
-        # print(resp)
-        # return Response(resp.json(), status=resp.status_code)
-
-        # device = Device.objects.get(id=33)
-        # smart_device = SmartHomeEnergyStorage({**model_to_dict(device), "type": device.type})
-        # raports = smart_device.get_charge_state_raports(start_date=datetime.datetime(2022, 5, 9, 0, 0, 0), end_date=datetime.datetime(2022, 5, 24, 23, 59, 59))
-        # new_raport = SmartHomeChargeStateRaport({"date": datetime.datetime(2022,5,21,12,0,0), "charge_value": 0})
-        # smart_device.push_charge_state_raports([new_raport])
-
-        # start_date=datetime.datetime(2022, 5, 9, 0, 0, 0)
-        # end_date=datetime.datetime(2022, 5, 24, 23, 59, 59)
-        # building = Building.objects.get(id=1)
-        # smart_building = SmartHomeBuilding(building.__dict__)
-        # storage_data = smart_building.get_energy_storage(start_date, end_date)
-
-        with open("dane_json.txt", "r") as f:
-            devices = json.load(f)
-        user = User.objects.get(id=1)
-        building = Building(
-            name="house_arizona", user=user, id=devices[0].get("building")
-        )
-        building.save()
-        floor = Floor(level=1, building=building)
-        floor.save()
-        for device in devices:
-            if device["room"]:
-                room = Room(name=device["room"], floor=floor, area=10)
-                room.save()
-                device["room"] = room.id
-            else:
-                room = None
-            device["resourcetype"] = device.get("type")
-            device["building"] = building.id
-            serializer = DeviceSerializer(data=device)
-            if serializer.is_valid():
-                serializer.save()
-            else:
-                return Response(
-                    data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
-                )
-
-        smart_devices = []
-        for device in devices:
-            for_smart = deepcopy(device)
-            smart_device_class = {
-                "EnergyReceiver": SmartHomeEnergyReceiver,
-                "EnergyGenerator": SmartHomeEnergyGenerator,
-                "EnergyStorage": SmartHomeEnergyStorage,
-            }.get(device["type"])
-            smart_devices.append(smart_device_class(for_smart))
-
-        smart_user = SmartHomeUser(user.__dict__)
-        smart_building = SmartHomeBuilding(building.__dict__)
-        smart_user.push_buildings([smart_building])
-        resp = smart_building.push_devices(smart_devices)
-        return Response(resp.json(), status=resp.status_code)
-
+@api_view()
+def weather_data_view(request):
+    serializer = DateTimeRangeSerializer(data=request.query_params)
+    if serializer.is_valid(raise_exception=True):
+        validated_data = serializer.to_internal_value(serializer.data)
+        start_date = validated_data.get("start_datetime")
+        end_date = validated_data.get("end_datetime")
+        weather_data = WeatherDataProvider().get_data(start_date, end_date)
+        return Response(weather_data, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class BuildingViewSet(viewsets.ModelViewSet):
     queryset = Building.objects.all()
@@ -114,14 +47,6 @@ class BuildingViewSet(viewsets.ModelViewSet):
             return self.list_serializer_class
         return self.serializer_class
 
-    @transaction.atomic
-    def create(self, request):
-        response = super().create(request)
-        user = get_object_or_404(User, id=response.data.get("user"))
-        smart_user = SmartHomeUser(user.__dict__)
-        smart_building = SmartHomeBuilding(response.data)
-        resp = smart_user.push_buildings([smart_building])
-        return Response(resp.json(), status=resp.status_code)
 
     # def get_queryset(self):
     #     return self.request.user.user_buildings.all()
@@ -153,18 +78,6 @@ class DeviceViewSet(viewsets.ModelViewSet):
         resp = smart_device.update_state()
         return Response(resp.json(), status=resp.status_code)
 
-    @transaction.atomic
-    def create(self, request):
-        if not request.data.get("id"):
-            request.data["id"] = Device.objects.all().last().id + 1
-        json_device = super().create(request)
-        building = get_object_or_404(Building, id=json_device.data.get("building"))
-        smart_building = SmartHomeBuilding(model_to_dict(building))
-        smart_device_class = self._get_device_class_by_type(json_device.data["type"])
-        smart_device = smart_device_class(json_device.data)
-        resp = smart_building.push_devices([smart_device])
-        return Response(resp.json(), status=resp.status_code)
-
 
 class RoomViewSet(viewsets.ModelViewSet):
     queryset = Room.objects.all()
@@ -174,12 +87,13 @@ class RoomViewSet(viewsets.ModelViewSet):
     ]
 
 
-class BuildingEnergyView(mixins.RetrieveModelMixin, generics.GenericAPIView):
-    # returns building energy usage hour by hour for current day
+
+class BuildingEnergyView(mixins.ListModelMixin, mixins.CreateModelMixin, generics.GenericAPIView):
     permission_classes = [
         AllowAny,
     ]
-    queryset = Building.objects.all()
+    queryset = EnergyMeasurement.objects.all()
+    serializer_class = DateRangeSerializer
 
     @classmethod
     def get_extra_actions(cls):
@@ -187,37 +101,98 @@ class BuildingEnergyView(mixins.RetrieveModelMixin, generics.GenericAPIView):
 
     # api/buildings/1/energy
     def get(self, request, *args, **kwargs):
-        building = self.get_object()
-        serialized_building = BuildingSerializer(building).data
-        smart_building = SmartHomeBuilding(serialized_building)
+        serializer = DateRangeSerializer(data=request.query_params)
+        if serializer.is_valid():
+            validated_data = serializer.to_internal_value(serializer.data)
+            start_date = validated_data.get("start_date")
+            end_date = validated_data.get("end_date")
+            building = get_object_or_404(Building, id=kwargs.get("pk"))
+            serialized_building = BuildingSerializer(building).data
 
-        hours_energies = smart_building.get_energy_hour_by_hour()
-        for floor in serialized_building.get("building_floors"):
-            for room in floor.get("floor_rooms"):
-                for device in room.get("room_devices"):
-                    device["energy_measurements"] = {}
-                    for hour, devices_energies in hours_energies.items():
-                        device["energy_measurements"][
-                            hour
-                        ] = self._get_energy_by_device_id(
-                            devices_energies, device["id"]
-                        )
+            energy_measurements = self.get_queryset().filter(
+                date__range=[start_date, end_date]
+            )
 
-        return Response(serialized_building)
+            for floor in serialized_building.get("building_floors"):
+                for room in floor.get("floor_rooms"):
+                    for device in room.get("room_devices"):
+                        device = self._get_receiver_energy_data(device, energy_measurements)
+            
+            no_room_receivers = EnergyReceiver.objects.all().filter(building=building, room=None)
+            other_devices = [self._get_receiver_energy_data(model_to_dict(device), energy_measurements) for device in no_room_receivers]
+            serialized_building["other_devices"]=other_devices
+            photovoltaics_data = self._get_photovoltaics_data(building, energy_measurements)
+            serialized_building["photovoltaics"] = photovoltaics_data
+            return Response(serialized_building)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def _get_energy_by_device_id(self, devices, id_):
-        device_energy = next((dev for dev in devices if dev["device_id"] == id_))
-        return {
-            "energy_value": device_energy.get("energy_value"),
-            "price": device_energy.get("price"),
-        }
+    def post(self, request, *args, **kwargs):
+        serializer = DateRangeSerializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            validated_data = serializer.to_internal_value(serializer.data)
+            start_date = validated_data.get("start_date")
+            end_date = validated_data.get("end_date")
+            building = get_object_or_404(Building, id=kwargs.get("pk"))
+            start_datetime = datetime.combine(start_date, datetime.min.time())
+            end_datetime = datetime.combine(end_date, datetime.max.time())
+            daily_measurements = EnergyDailyMeasurement.objects.all().filter(
+                device__building=building, datetime__range=[start_datetime, end_datetime]
+            )
+            devices_dates_energy_sum = defaultdict(lambda: defaultdict(lambda:0))
+            for measurement in daily_measurements:
+                devices_dates_energy_sum[measurement.device][measurement.datetime.date()] += measurement.energy_value
+            energy_measurements = []
+            for device, data in devices_dates_energy_sum.items():
+                for date, energy_sum in data.items():
+                    energy_measurements.append(EnergyMeasurement(device=device, date=date, energy_value=energy_sum))
+            serializer = EnergyMeasurementSerializer(energy_measurements, many=True)
+            EnergyMeasurement.objects.bulk_create(energy_measurements, ignore_conflicts=True)
+        return Response(serializer.data)
 
+    def _get_receiver_energy_data(self, device, energy_measurements):
+        device["energy_data"] = {}
+        energy_data = [
+                    data
+                    for data in energy_measurements
+                    if data.device.id == device.get("id")
+                ]
+        energy_sum = 0
+        for measurement in energy_data:
+            date_str = "%Y-%m-%d"
+            device["energy_data"][measurement.date.strftime(date_str)] = measurement.energy_value
+            energy_sum+=measurement.energy_value
+        
+        device["energy_sum"] = energy_sum
+        return device
 
-class EnergyMeasurementViewSet(
+    def _get_photovoltaics_data(self, building, energy_measurements):
+        try:
+            photovoltaics_device = EnergyGenerator.objects.all().get(building=building)
+        except EnergyGenerator.DoesNotExist:
+            return {}
+
+        photovoltaics_data = model_to_dict(photovoltaics_device)
+        photovoltaics_data["energy_data"] = {}
+        energy_data = [
+                        data
+                        for data in energy_measurements
+                        if data.device.id == photovoltaics_device.id
+                    ]
+        energy_sum = 0
+        for measurement in energy_data:
+            date_str = "%Y-%m-%d"
+            photovoltaics_data["energy_data"][measurement.date.strftime(date_str)] = measurement.energy_value
+            energy_sum+=measurement.energy_value
+        
+        photovoltaics_data["energy_sum"]=energy_sum
+        return photovoltaics_data
+
+class BuildingEnergyMeasurementViewSet(
     mixins.ListModelMixin, mixins.CreateModelMixin, generics.GenericAPIView
 ):
     queryset = EnergyDailyMeasurement.objects.all()
-    serializer_class = EnergyDailyMeasurementViewSerializer
+    serializer_class = DateTimeRangeSerializer
     permission_classes = [
         AllowAny,
     ]
@@ -226,70 +201,188 @@ class EnergyMeasurementViewSet(
     def get_extra_actions(cls):
         return []
 
+    def get_queryset(self):
+        return self.queryset.filter(device__building__pk=self.kwargs["pk"])
+
+
     def get(self, request, *args, **kwargs):
-        serializer = EnergyDailyMeasurementViewSerializer(data=request.query_params)
+        serializer = DateTimeRangeSerializer(data=request.query_params)
         if serializer.is_valid():
             validated_data = serializer.to_internal_value(serializer.data)
-            start_date = validated_data.get("start_date")
-            end_date = validated_data.get("end_date")
-            building = validated_data.get("building")
-            building = get_object_or_404(Building, id=building.id)
+            start_date = validated_data.get("start_datetime")
+            end_date = validated_data.get("end_datetime")
+            building = get_object_or_404(Building, id=kwargs.get("pk"))
             serialized_building = BuildingSerializer(building).data
 
-            self._initialize_device_energy_dicts(serialized_building)
-            energy_measurements = EnergyDailyMeasurement.objects.filter(
-                datetime__range=[start_date, end_date], device__building=building
+            energy_measurements = self.get_queryset().filter(
+                datetime__range=[start_date, end_date]
             )
 
             for floor in serialized_building.get("building_floors"):
                 for room in floor.get("floor_rooms"):
                     for device in room.get("room_devices"):
-                        energy_data = [
-                            data
-                            for data in energy_measurements
-                            if data.device.id == device.get("id")
-                        ]
-                        for day in energy_data:
-                            if device.get("id") == 1:
-                                print(day)
-                            date_str = "%Y-%m-%d"
-                            device["energy_data"]["energy_sum"][
-                                day.date.strftime(date_str)
-                            ] = day.energy_value
-                            device["energy_data"]["energy_price"][
-                                day.date.strftime(date_str)
-                            ] = day.calculated_price
-                            device["energy_data"]["energy_source"][
-                                day.date.strftime(date_str)
-                            ] = day.energy_source
-
-            return Response(serialized_building)
+                        device = self._get_receiver_energy_data(device, energy_measurements)
+     
+            no_room_receivers = EnergyReceiver.objects.all().filter(building=building, room=None)
+            other_devices = [self._get_receiver_energy_data(model_to_dict(device), energy_measurements) for device in no_room_receivers]
+            serialized_building["other_devices"]=other_devices
+            photovoltaics_data = self._get_photovoltaics_data(building, energy_measurements)
+            serialized_building["photovoltaics"] = photovoltaics_data
+            return Response(serialized_building, status=status.HTTP_200_OK)
 
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @transaction.atomic
     def post(self, request, *args, **kwargs):
-        serializer = EnergyDailyMeasurementViewSerializer(data=request.data)
+        serializer = DateTimeRangeSerializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            validated_data = serializer.to_internal_value(serializer.data)
+            start_datetime = validated_data.get("start_datetime")
+            end_datetime = validated_data.get("end_datetime")
+            building = get_object_or_404(Building, id=kwargs.get("pk"))
+
+            measurements, sources, surpluses = EnergyMeasurementsManager(building).download_home_energy(
+                start_datetime, end_datetime
+            )
+
+            serializer_sources = EnergySourcesRaportSerializer(sources, many=True)
+            serializer_measurements = EnergyDailyMeasurementSerializer(measurements, many=True)
+            response = {"sources": serializer_sources.data, "surpluses": {}, "measurements": serializer_measurements.data}
+            return Response(response, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _get_receiver_energy_data(self, device, energy_measurements):
+        device["energy_data"] = {}
+        energy_data = [
+            data
+            for data in energy_measurements
+            if data.device.id == device.get("id")
+        ]
+        energy_sum = 0
+        for measurement in energy_data:
+            datetime_str = "%Y-%m-%d %H:%M:%S"
+            device["energy_data"][measurement.datetime.strftime(datetime_str)] = measurement.energy_value
+            energy_sum+=measurement.energy_value
+        
+        device["energy_sum"] = energy_sum
+        return device
+
+    def _get_photovoltaics_data(self, building, energy_measurements):
+        try:
+            photovoltaics_device = EnergyGenerator.objects.all().get(building=building)
+        except EnergyGenerator.DoesNotExist:
+            return {}
+
+        photovoltaics_data = model_to_dict(photovoltaics_device)
+        photovoltaics_data["energy_data"] = {}
+        energy_data = [
+                        data
+                        for data in energy_measurements
+                        if data.device.id == photovoltaics_device.id
+                    ]
+        energy_sum = 0
+        for measurement in energy_data:
+            datetime_str = "%Y-%m-%d %H:%M:%S"
+            photovoltaics_data["energy_data"][measurement.datetime.strftime(datetime_str)] = measurement.energy_value
+            energy_sum+=measurement.energy_value
+        
+        photovoltaics_data["energy_sum"]=energy_sum
+        return photovoltaics_data
+
+class DatesRangeFilterView(generics.ListAPIView):
+    def get_queryset(self):
+        return self.queryset.filter(building__pk=self.kwargs["pk"])
+
+    def get(self, request, *args, **kwargs):
+        serializer = DateTimeRangeSerializer(data=request.query_params)
         if serializer.is_valid():
             validated_data = serializer.to_internal_value(serializer.data)
-            start_date = validated_data.get("start_date")
-            end_date = validated_data.get("end_date")
-            building = validated_data.get("building")
+            start_date = validated_data.get("start_datetime")
+            end_date = validated_data.get("end_datetime")
 
-            measurements = BuildingEnergyManager(building).manage_energy_sources(
-                start_date, end_date
+            raports = self.get_queryset().filter(
+               Q(date_time_from__range=[start_date, end_date]) |
+               Q(date_time_to__range=[start_date, end_date])
             )
-            serializer = EnergyDailyMeasurementSerializer(measurements, many=True)
+            for raport in raports:
+                raport.date_time_from = raport.date_time_from if raport.date_time_from >= start_date else start_date
+                raport.date_time_to = raport.date_time_to if raport.date_time_to <= end_date else end_date
+            serializer = self.get_serializer(raports, many=True)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def _initialize_device_energy_dicts(self, building):
-        for floor in building.get("building_floors"):
-            for room in floor.get("floor_rooms"):
-                for device in room.get("room_devices"):
-                    d = defaultdict(lambda: {})
-                    device["energy_data"] = d
-        return building
+
+class BuildingEnergySourcesRaportsView(DatesRangeFilterView):
+    queryset = EnergySourcesRaport.objects.all()
+    serializer_class = EnergySourcesRaportSerializer
+    permission_classes = [
+        AllowAny,
+    ]
+
+
+class BuildingExchangeEnergyStorageRaportsView(DatesRangeFilterView):
+    queryset = ExchangeEnergyStorageRaport.objects.all()
+    serializer_class = ExchangeEnergyStorageRaportSerializer
+    permission_classes = [
+        AllowAny,
+    ]
+
+class SingleDateRangeFilterView(generics.ListAPIView):
+    def get_queryset(self):
+        return self.queryset.filter(building__pk=self.kwargs["pk"])
+
+
+    def get(self, request, *args, **kwargs):
+        serializer = DateTimeRangeSerializer(data=request.query_params)
+        if serializer.is_valid():
+            validated_data = serializer.to_internal_value(serializer.data)
+            start_date = validated_data.get("start_datetime")
+            end_date = validated_data.get("end_datetime")
+
+            raports = self.get_queryset().filter(date_time__range=[start_date, end_date])
+
+            serializer = self.get_serializer(raports, many=True)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BuildingPhotovoltaicsSufficiencyRaportsView(SingleDateRangeFilterView):
+    queryset = PhotovoltaicsSufficiencyRaport.objects.all()
+    serializer_class = PhotovoltaicsSufficiencyRaportSerializer
+    permission_classes = [
+        AllowAny,
+    ]
+
+
+class BuildingEnergyGridSurplusRaportsView(generics.ListAPIView):
+    queryset = EnergySurplusRaport.objects.all()
+    serializer_class = EnergySurplusRaportSerializer
+    permission_classes = [
+        AllowAny,
+    ]
+
+    def get_queryset(self):
+        return self.queryset.filter(building__pk=self.kwargs["pk"])
+
+    def get_loss_queryset(self):
+        return EnergySurplusLossRaport.objects.all().filter(building__pk=self.kwargs["pk"])
+
+    def get(self, request, *args, **kwargs):
+        serializer = DateTimeRangeSerializer(data=request.query_params)
+        if serializer.is_valid():
+            validated_data = serializer.to_internal_value(serializer.data)
+            start_date = validated_data.get("start_datetime")
+            end_date = validated_data.get("end_datetime")
+
+            raports = self.get_queryset().filter(date_time__range=[start_date, end_date])
+            raports_loss = self.get_loss_queryset().filter(date_time__range=[start_date, end_date])
+
+            serializer = EnergySurplusRaportSerializer(raports, many=True)
+            loss_serializer = EnergySurplusLossRaportSerializer(raports_loss, many=True)
+            resp = {"grid_surplus_data": serializer.data, "grid_surplus_loss_data": loss_serializer.data}
+            return Response(resp, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class BuildingDevicesView(generics.ListAPIView):
@@ -306,24 +399,14 @@ class BuildingDevicesView(generics.ListAPIView):
     def post(self, request, *args, **kwargs):
         building = get_object_or_404(Building, id=kwargs.get("pk"))
         device_data = request.data
-        smart_devices = []
         for device in device_data:
             device["resourcetype"] = device.get("type")
             device["building"] = building.id
             serializer = self.serializer_class(data=device)
             if serializer.is_valid():
                 serializer.save()
-                smart_device_class = {
-                    "EnergyReceiver": SmartHomeEnergyReceiver,
-                    "EnergyGenerator": SmartHomeEnergyGenerator,
-                    "EnergyStorage": SmartHomeEnergyStorage,
-                }.get(serializer.data["type"])
-                smart_devices.append(smart_device_class(serializer.data))
             else:
                 return Response(
                     data=serializer.errors, status=status.HTTP_400_BAD_REQUEST
                 )
-        smart_building = SmartHomeBuilding(building.__dict__)
-
-        resp = smart_building.push_devices(smart_devices)
-        return Response(resp.json(), status=resp.status_code)
+        return Response({}, status=status.HTTP_200_OK)

@@ -1,7 +1,9 @@
 from datetime import date, datetime, timedelta
+
+from services.smart_home.smart_raport import SmartHomeChargeStateRaport
 from .base_calc import BaseEnergyCalculator, is_energy_needed
 from collections import defaultdict
-from services.smart_home import SmartHomeStorageChargingAndUsageRaport, JobType, SmartHomeEnergyStorage
+from services.smart_home import JobType, SmartHomeEnergyStorage
 
 CURRENT_STORAGE_CHARGING_FACTOR = 0.1
 
@@ -31,7 +33,7 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
         for device, data in self._storage_devices_data.items():
             if storage_cover>=0:
                 break
-
+            print(f"we have {data['current_capacity']} energy in storage")
             is_energy_in_storage = data['current_capacity'] > 0
             if is_energy_in_storage:
                 storage_energy_used = self._calculate_storage_usage(device, energy_demand)
@@ -41,20 +43,22 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
 
         return total_storage_energy_used, storage_cover #informacja czy energii z magazynu wystarczyło na pokrycie wszystkiego
     
-    def update_storage_params(self, start_date, end_date, measurements, raports):
+    def update_storage_params(self, start_date, end_date, measurements):
         self._start_datetime = start_date
         self._end_datetime = end_date
-        devices_data = self._initialize_device_energy_dicts([*measurements, *raports])
+        devices_data = self._initialize_device_energy_dicts([*measurements])
         for data in measurements:
             devices_data[data.device]["charge_state_raports"].append(data)
-        for raport in raports:
-            devices_data[raport.device]["usage_raports"].append(raport)
         self._storage_devices_data = devices_data
 
+        self._update_timestamp_actions()
         self._update_max_charge_values_in_time_interval()
         self._update_current_storages_capacities()
-
     
+    def _update_timestamp_actions(self):
+        for device in self._storage_devices_data.keys():
+            self._storage_devices_data[device]["timestamp_action"] = None
+
     def _update_max_charge_values_in_time_interval(self):
         max_time_of_usage = (self._end_datetime - self._start_datetime).total_seconds() / 60.0 / 60 # (2022,5,10,17,00,0)-(2022,5,10,15,30,0)=1:30:00
         for device in self._storage_devices_data.keys():
@@ -64,6 +68,7 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
     def _update_current_storages_capacities(self):
         for device in self._storage_devices_data.keys():
             latest_charge_val = self._get_device_current_capacity(device)
+            print(f"we're updating storage to have {latest_charge_val}")
             self._storage_devices_data[device]["current_capacity"] = latest_charge_val
 
     def _calculate_charging_time(self, storage, capacity_to_charge):
@@ -78,41 +83,48 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
         return (charge_val_in_time_interval * storage.battery_voltage) / 1000 # ([Ah] * [V]) = [Wh] -> [Wh] / 1000 = [kWh]
 
     def _calculate_storage_charge(self, storage, energy_to_store):
-        max_charge_value = self._storage_devices_data[storage]["max_charge_value_in_time_interval"]
-        storage_energy_used = min(energy_to_store, max_charge_value)
-        self._set_device_current_capacity(storage, storage_energy_used)
-        return storage_energy_used
+        if self._storage_devices_data[storage]["timestamp_action"] != JobType.USAGE:
+            print("inside charging acu")
+            max_charge_value = self._storage_devices_data[storage]["max_charge_value_in_time_interval"]
+            storage_energy_used = min(energy_to_store, max_charge_value)
+            self._set_device_current_capacity(storage, storage_energy_used)
+            return storage_energy_used
+        return 0
 
     def _calculate_storage_usage(self, device, energy_to_use):
-        current_capacity = self._get_device_current_capacity(device)
-        storage_energy_used = min(current_capacity, energy_to_use)
-        self._set_device_current_capacity(device, 0-storage_energy_used)
-        return storage_energy_used
+        if self._storage_devices_data[device]["timestamp_action"] != JobType.CHARGING:
+            print("inside using acu")
+            current_capacity = self._get_device_current_capacity(device)
+            storage_energy_used = min(current_capacity, energy_to_use)
+            self._set_device_current_capacity(device, 0-storage_energy_used)
+            return storage_energy_used
+        return 0
 
-    def _create_new_storage_usage_raport(self, device, start, end, job_type):
+    def _create_new_charge_state_raport(self, device, charge_value):
         smart_storage = SmartHomeEnergyStorage(device.__dict__)
-        raport = SmartHomeStorageChargingAndUsageRaport({"date_time_from": start, "date_time_to": end, "job_type": job_type})
+        raport = SmartHomeChargeStateRaport({
+            "date": self._end_datetime, 
+            "charge_value": charge_value
+            })
         # smart_storage.push_raports([raport])
-
-    def _get_storage_availability_date(self, usages_raports):
-        try:
-            return max([elem.date for elem in usages_raports])
-        except ValueError:
-            return self._start_datetime
 
     def _set_device_current_capacity(self, storage_device, energy_used):
         current_capacity = self._get_device_current_capacity(storage_device)
         new_capacity = current_capacity+energy_used
-        if new_capacity > current_capacity:
-            job_type = JobType.CHARGING
-        else: 
-            job_type = JobType.USAGE
-        self._create_new_storage_usage_raport(storage_device, self._start_datetime, self._end_datetime, job_type)
+        if new_capacity>current_capacity:
+             self._storage_devices_data[storage_device]["timestamp_action"] = JobType.CHARGING
+        else:
+            self._storage_devices_data[storage_device]["timestamp_action"] = JobType.USAGE
+        self._create_new_charge_state_raport(storage_device, new_capacity)
+    
         self._storage_devices_data[storage_device]["current_capacity"] = new_capacity
+        print(f"old capacity is {current_capacity} and when adding {energy_used} new capacity is {new_capacity}")
 
+    
     def _get_device_current_capacity(self, storage_device):
-        current_capacity = self._storage_devices_data[storage_device]["current_capacity"] 
-        if current_capacity:
+        current_capacity = self._storage_devices_data[storage_device]["current_capacity"]
+
+        if current_capacity is not None:
             return current_capacity
         charge_state_raports =  self._storage_devices_data[storage_device]["charge_state_raports"]
         try:
@@ -138,8 +150,8 @@ class EnergyStorageCalculator(BaseEnergyCalculator):
         for data in device_data:
             devices_data[data.device] = {}
             devices_data[data.device]["charge_state_raports"] = []
-            devices_data[data.device]["usage_raports"] = []
             devices_data[data.device]["current_capacity"] = None
             devices_data[data.device]["max_charge_value_in_time_interval"] = None
+            devices_data[data.device]["timestamp_action"] = None
 
         return devices_data

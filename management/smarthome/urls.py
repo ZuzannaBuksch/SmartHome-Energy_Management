@@ -1,9 +1,8 @@
 from django.urls import include, path
 from rest_framework import routers
 
-from .views import (BuildingDevicesView, BuildingEnergyView,
-                    BuildingFromJsonFileViewSet, BuildingViewSet,
-                    DeviceViewSet, EnergyMeasurementViewSet, RoomViewSet)
+from .views import (weather_data_view, BuildingDevicesView, BuildingEnergyView,BuildingViewSet, BuildingEnergySourcesRaportsView, BuildingExchangeEnergyStorageRaportsView,
+                    DeviceViewSet, BuildingEnergyMeasurementViewSet, RoomViewSet, BuildingEnergyGridSurplusRaportsView, BuildingPhotovoltaicsSufficiencyRaportsView)
 
 app_name = "smarthome"
 
@@ -12,7 +11,6 @@ router = routers.SimpleRouter()
 router.register(r"buildings", BuildingViewSet)
 router.register(r"rooms", RoomViewSet)
 router.register(r"devices", DeviceViewSet)
-router.register(r"json-buildings", BuildingFromJsonFileViewSet)
 
 urlpatterns = [
     path("", include(router.urls)),
@@ -23,9 +21,9 @@ urlpatterns = [
         name="devices",
     ),
     path(
-        "energy-measurements/",
-        EnergyMeasurementViewSet.as_view(),
-        name="energy-measurements",
+        "buildings/<int:pk>/energy-measurements/",
+        BuildingEnergyMeasurementViewSet.as_view(),
+        name="building-energy-measurements",
     ),
     path("buildings/<int:pk>/energy/", BuildingEnergyView.as_view(), name="energy"),
     path(
@@ -33,4 +31,25 @@ urlpatterns = [
         BuildingDevicesView.as_view(),
         name="building-devices",
     ),
+    path(
+        "buildings/<int:pk>/energy-sources/",
+        BuildingEnergySourcesRaportsView.as_view(),
+        name="building-energy-sources",
+    ),
+    path(
+        "buildings/<int:pk>/energy-grid-surplus/",
+        BuildingEnergyGridSurplusRaportsView.as_view(),
+        name="building-energy-grid-surplus",
+    ),
+    path(
+        "buildings/<int:pk>/photovoltaics-sufficiency/",
+        BuildingPhotovoltaicsSufficiencyRaportsView.as_view(),
+        name="building-photovoltaics-sufficiency",
+    ),
+    path(
+        "buildings/<int:pk>/exchange-energy/",
+        BuildingExchangeEnergyStorageRaportsView.as_view(),
+        name="building-exchange-energy",
+    ),
+    path('weather/', weather_data_view, name='weather-data-view'),
 ]

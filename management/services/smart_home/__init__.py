@@ -7,3 +7,4 @@ from .smart_home import SmartHome
 from .smart_raport import (SmartHomeDeviceRaport, JobType, SmartHomeChargeStateRaport,
                            SmartHomeStorageChargingAndUsageRaport)
 from .smart_user import SmartHomeUser
+import requests

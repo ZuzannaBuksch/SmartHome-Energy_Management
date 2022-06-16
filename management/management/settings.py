@@ -51,6 +51,8 @@ INSTALLED_APPS = [
     "django_elasticsearch_dsl",
 ]
 
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10240 # higher than the count of fields
+
 AUTH_USER_MODEL = "users.User"
 
 MIDDLEWARE = [

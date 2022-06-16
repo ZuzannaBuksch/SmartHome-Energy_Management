@@ -14,11 +14,20 @@ class SmartHomeUser(SmartHomeObject):
         self.id = data.get("id")
         self.name = data.get("name")
         self.email = data.get("email")
+        self.password = data.get("password")
         super().__init__(*args, **kwargs)
 
     @staticmethod
     def url(user_id: str) -> str:
         return f"users/{user_id}"
+
+    def asdict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "email": self.email,
+            "password": self.password,
+        }
 
     def get_buildings(self, building_id):
         data = self._get_data(SmartHomeBuilding.url(building_id))

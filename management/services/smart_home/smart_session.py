@@ -11,7 +11,7 @@ from .smart_request import SmartHomeRequest
 
 
 def check_for_errors(response, *args, **kwargs):
-    return
+    # return
     return response.raise_for_status()
 
 
@@ -48,7 +48,6 @@ def smart_home_session(request: SmartHomeRequest = None) -> requests.Session:
         headers=headers,
         params=params,
     )
-
     http.post = lambda *args, **kwargs: requests.Session.post(
         http,
         urljoin(http.base_url, args[0]),

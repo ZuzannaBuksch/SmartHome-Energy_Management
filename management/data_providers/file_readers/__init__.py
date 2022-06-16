@@ -1,2 +1,3 @@
 from .prices_file_reader import PricesFileReader
 from .weather_file_reader import WeatherFileReader
+from .building_file_reader import BuildingFileReader

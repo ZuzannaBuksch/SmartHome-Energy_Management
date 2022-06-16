@@ -1,15 +1,15 @@
-from datetime import datetime
-
 from django.core.validators import MaxValueValidator
 from django.db import models
 from jsonfield import JSONField
 from polymorphic.models import PolymorphicModel
 from users.models import User
-
+from django.forms.models import model_to_dict
+from services.smart_home import SmartHomeBuilding, SmartHomeUser, SmartHomeEnergyGenerator, SmartHomeEnergyReceiver, SmartHomeEnergyStorage
 
 class Building(models.Model):
     name = models.CharField(max_length=100, null=True)
     icon = models.IntegerField(null=True, blank=True, default=0)
+    use_exchange_energy = models.BooleanField(default=False)
     user = models.ForeignKey(
         User, related_name="user_buildings", null=False, on_delete=models.CASCADE
     )
@@ -17,6 +17,12 @@ class Building(models.Model):
     def __str__(self):
         return f"Building: {str(self.id)} | name: {self.name}"
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        smart_user = SmartHomeUser(model_to_dict(self.user))
+        building = {"name": self.name, "icon": self.icon, "id": self.id, "user": self.user}
+        smart_building = SmartHomeBuilding(building)
+        smart_user.push_buildings([smart_building])
 
 class Floor(models.Model):
     building = models.ForeignKey(
@@ -62,6 +68,12 @@ class EnergyReceiver(Device):
     def __str__(self):
         return f"Energy receiving device: {str(self.id)} | name: {self.name}"
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        smart_building = SmartHomeBuilding(model_to_dict(self.building))
+        device = {"name": self.name, "type": self.type,  "state": self.state, "id": self.id, "device_power": self.device_power, "supply_voltage": self.supply_voltage}
+        smart_device = SmartHomeEnergyReceiver(device)
+        smart_building.push_devices([smart_device])
 
 class EnergyGenerator(Device):
     generation_power = models.FloatField()
@@ -69,6 +81,12 @@ class EnergyGenerator(Device):
     def __str__(self):
         return f"Energy generating device: {str(self.id)} | name: {self.name}"
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        smart_building = SmartHomeBuilding(model_to_dict(self.building))
+        device = {"name": self.name, "type": self.type,  "state": self.state, "id": self.id, "generation_power": self.generation_power}
+        smart_device = SmartHomeEnergyGenerator(device)
+        smart_building.push_devices([smart_device])
 
 class EnergyStorage(Device):
     capacity = models.FloatField()  # [kWh]
@@ -77,6 +95,12 @@ class EnergyStorage(Device):
     def __str__(self):
         return f"Energy storing device: {str(self.id)} | name: {self.name}"
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        smart_building = SmartHomeBuilding(model_to_dict(self.building))
+        device = {"name": self.name, "type": self.type,  "state": self.state, "id": self.id, "capacity": self.capacity, "battery_voltage": self.battery_voltage}
+        smart_device = SmartHomeEnergyStorage(device)
+        smart_building.push_devices([smart_device])
 
 class EnergyDailyMeasurement(models.Model):
     datetime = models.DateTimeField(auto_now=False, null=False)
@@ -92,7 +116,7 @@ class EnergyDailyMeasurement(models.Model):
         )
 
     def __str__(self):
-        return f"Measurement: {str(self.id)} | device: {self.device.name} | date: {self.datetime}"
+        return f"Measurement: {str(self.id)} | device: {self.device.name} | datetime: {self.datetime}"
 
 
 class EnergyMeasurement(models.Model):
@@ -124,6 +148,9 @@ class ExchangeEnergyStorageRaport(models.Model):
     date_time_from = models.DateTimeField()
     date_time_to = models.DateTimeField()
 
+    class Meta:
+        unique_together = ('building', 'date_time_from',)
+
 class EnergySurplusLossRaport(models.Model):
     building = models.ForeignKey(
         Building,
@@ -134,8 +161,11 @@ class EnergySurplusLossRaport(models.Model):
     value = models.FloatField(null=False)
     date_time = models.DateTimeField()
 
+    class Meta:
+        unique_together = ('building', 'date_time',)
 
 class EnergySurplusRaport(models.Model):
+    #is for Grid Surplus
     TRANSFER = 'TRANSFER'
     DEVICES_POWERING= 'DEVICES_POWERING'
     BATTERY_CHARGING = 'BATTERY_CHARGING'
@@ -153,6 +183,9 @@ class EnergySurplusRaport(models.Model):
     )
     value = models.FloatField(null=False)
     date_time = models.DateTimeField()
+
+    class Meta:
+        unique_together = ('building', 'date_time', 'usage_type', 'value')
 
     def save(self, *args, **kwargs):
         try:
@@ -173,8 +206,10 @@ class EnergySurplusRaport(models.Model):
             except EnergySurplusLossRaport.DoesNotExist:
                 EnergySurplusLossRaport.objects.create(value=value_loss, building=self.building, date_time=self.date_time)
             self.value = float(current_value)+value_to_grid
+
         else:
             self.value = current_value-self.value
+        
         return super().save(*args, **kwargs)
 
 class EnergySourcesRaport(models.Model):
@@ -188,6 +223,9 @@ class EnergySourcesRaport(models.Model):
     date_time_from = models.DateTimeField()
     date_time_to = models.DateTimeField()
 
+    class Meta:
+        unique_together = ('building', 'date_time_from',)
+
 class PhotovoltaicsSufficiencyRaport(models.Model):
     building = models.ForeignKey(
         Building,
@@ -198,6 +236,8 @@ class PhotovoltaicsSufficiencyRaport(models.Model):
     sufficiency_percentage = models.FloatField(null=False)
     date_time = models.DateTimeField()
 
+    class Meta:
+        unique_together = ('building', 'date_time',)
 
 class Schedule(models.Model):
     building = models.ForeignKey(

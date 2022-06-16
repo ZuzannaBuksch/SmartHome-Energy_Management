@@ -3,7 +3,6 @@ import json
 from typing import Any, Mapping
 from .smart_raport import SmartHomeStorageChargingAndUsageRaport, SmartHomeDeviceRaport
 
-from smarthome.models import EnergyReceiver, EnergyStorage
 
 from .smart_object import SmartHomeObject
 
@@ -45,8 +44,8 @@ class SmartHomeDevice(SmartHomeObject):
         device = self._get_data(get_url)
         raports = device.get("raports", [])
         raport_class = {
-            EnergyStorage.__name__: SmartHomeStorageChargingAndUsageRaport,
-            EnergyReceiver.__name__: SmartHomeDeviceRaport,
+            "EnergyStorage": SmartHomeStorageChargingAndUsageRaport,
+            "EnergyReceiver": SmartHomeDeviceRaport,
         }.get(self.type)
         return [raport_class(raport, self._request) for raport in raports]
 

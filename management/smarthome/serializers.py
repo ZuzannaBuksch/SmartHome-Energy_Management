@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from rest_polymorphic.serializers import PolymorphicSerializer
 
-from .models import (Building, Device, EnergyDailyMeasurement, EnergyGenerator,
-                     EnergyReceiver, EnergyStorage, Floor, Room)
+from .models import (Building, Device, EnergyDailyMeasurement, EnergyGenerator, EnergyMeasurement,
+                     EnergyReceiver, EnergySourcesRaport, EnergyStorage, EnergySurplusLossRaport, EnergySurplusRaport, ExchangeEnergyStorageRaport, Floor, PhotovoltaicsSufficiencyRaport, Room)
 
 
 class AbstractDeviceSerializer(serializers.ModelSerializer):
@@ -14,7 +14,6 @@ class AbstractDeviceSerializer(serializers.ModelSerializer):
 
 
 class EnergyGeneratorSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField(required=False)
 
     class Meta:
         model = EnergyGenerator
@@ -117,16 +116,47 @@ class EnergyDailyMeasurementSerializer(serializers.ModelSerializer):
         model = EnergyDailyMeasurement
         fields = "__all__"
 
+class EnergySourcesRaportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnergySourcesRaport
+        fields = "__all__"
+
+class EnergySurplusRaportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnergySurplusRaport
+        fields = "__all__"
+
+class EnergySurplusLossRaportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnergySurplusLossRaport
+        fields = "__all__"
+
+class PhotovoltaicsSufficiencyRaportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PhotovoltaicsSufficiencyRaport
+        fields = "__all__"
+
+class ExchangeEnergyStorageRaportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExchangeEnergyStorageRaport
+        fields = "__all__"
 
 class BuildingIdSerializer(serializers.ModelSerializer):
     class Meta:
         model = Building
         fields = ("id",)
 
+class EnergyMeasurementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnergyMeasurement
+        fields = "__all__"
 
-class EnergyDailyMeasurementViewSerializer(serializers.Serializer):
-    start_date = serializers.DateField(format="%Y-%m-%d", input_formats=["%Y-%m-%d"])
-    end_date = serializers.DateField(
-        format="%Y-%m-%d", input_formats=["%Y-%m-%d"], required=False
+class DateTimeRangeSerializer(serializers.Serializer):
+    start_datetime = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", input_formats=["%Y-%m-%d %H:%M:%S"])
+    end_datetime = serializers.DateTimeField(
+        format="%Y-%m-%d %H:%M:%S", input_formats=["%Y-%m-%d %H:%M:%S"], required=True
     )
-    building = serializers.PrimaryKeyRelatedField(queryset=Building.objects.all())
+
+class DateRangeSerializer(serializers.Serializer):
+    start_date = serializers.DateField(format="%Y-%m-%d", input_formats=["%Y-%m-%d"])
+    end_date = serializers.DateField(format="%Y-%m-%d", input_formats=["%Y-%m-%d"])

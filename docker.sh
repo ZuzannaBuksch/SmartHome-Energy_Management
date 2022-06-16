@@ -13,7 +13,8 @@ Containers:
     elastic                         create and populate Elasticsearch index
     admin                           create admin account
     postgres                        run psql commands in the postgres container
-    postgres-rm <user_id>           delete selected user from database                    
+    postgres-rm <user_id>           delete selected user from database
+    populate-db                     fill database with data from text files
     purge                           purge unused containers and images
 Tests:
     tests                            run tests
@@ -45,6 +46,12 @@ case "$1" in
         ;;
     elastic)
         docker-compose run --rm web python management/manage.py search_index --rebuild
+        ;;
+    populate-db)
+        docker-compose run --rm web python management/populate_db_from_file.py
+        ;;
+    generate-data)
+        docker-compose run --rm web python management/generate_random_data.py
         ;;
     admin)
         docker-compose run --rm web python management/manage.py createsuperuser

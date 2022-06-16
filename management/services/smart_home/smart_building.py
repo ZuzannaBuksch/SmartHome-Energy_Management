@@ -3,8 +3,6 @@ from datetime import date, datetime, time, timedelta
 from typing import Any, List, Mapping
 
 from requests import Response
-from smarthome.models import (Device, EnergyGenerator, EnergyReceiver,
-                              EnergyStorage)
 
 from .smart_device import SmartHomeDevice
 from .smart_energy_generator import SmartHomeEnergyGenerator
@@ -37,9 +35,9 @@ class SmartHomeBuilding(SmartHomeObject):
 
     def _get_device_class(self, type):
         return {
-            EnergyReceiver.__name__: SmartHomeEnergyReceiver,
-            EnergyGenerator.__name__: SmartHomeEnergyGenerator,
-            EnergyStorage.__name__: SmartHomeEnergyStorage,
+            "EnergyReceiver": SmartHomeEnergyReceiver,
+            "EnergyGenerator": SmartHomeEnergyGenerator,
+            "EnergyStorage": SmartHomeEnergyStorage,
         }.get(type)
 
     def get_devices(self):
@@ -89,16 +87,13 @@ class SmartHomeBuilding(SmartHomeObject):
 
         energy_measurements = []
         for device_data in energy_data.get("building_devices", []):
-            try:
-                device = Device.objects.get(id=device_data["id"])
-                value = device_data.get("energy")
-                energy_measurements.append(
-                    {
-                        "device_id": device.id,
-                        "energy_value": value,
-                        "date": end_date,
-                    }
-                )
-            except Device.DoesNotExist:
-                pass
+            device_id = device_data["id"]
+            value = device_data.get("energy")
+            energy_measurements.append(
+                {
+                    "device_id": device_id,
+                    "energy_value": value,
+                    "date": end_date,
+                }
+            )
         return energy_measurements

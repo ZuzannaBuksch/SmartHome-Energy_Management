@@ -1,3 +1,4 @@
+import pandas as pd
 from datetime import datetime
 from .file_readers import PricesFileReader
 
@@ -5,12 +6,11 @@ class ExchangePricesDataProvider:
     def __init__(self):
         self._file_reader = PricesFileReader()
 
-    def get_data(self, date_time: datetime):
-        prices = self._read_prices_file()
-        current_price = prices.get(date_time, 0.69)
-        return current_price
+    def get_data(self, start_datetime: datetime, end_datetime: datetime):
+        prices_data = self._file_reader.read_file()
+        
+        to_date = lambda str_date: datetime.strptime(str_date,"%Y-%m-%d %H:%M:%S")
+        prices_cols = [[to_date(k), v] for item in prices_data for k, v in item.items()]
+        prices_df = pd.DataFrame(prices_cols, columns=["datetime", "price"])
 
-
-# {  "2022-05-09 10:00:00" : 0.45,
-#   "2022-05-09 10:00:00" : 0.45,
-#   "2022-05-09 10:00:00" : 0.45 }
+        return prices_df[prices_df.datetime.between(start_datetime, end_datetime)]

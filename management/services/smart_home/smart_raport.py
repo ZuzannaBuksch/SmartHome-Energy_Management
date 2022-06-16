@@ -43,7 +43,7 @@ class SmartHomeStorageChargingAndUsageRaport(SmartHomeObject):
             self.date_time_from = data.get("date_time_from")
             self.date_time_to = data.get("date_time_to")
         self.job_type = data.get("job_type")
-        self.device = data.get("device")
+        self.energy_use = data.get("energy_use")
         super().__init__(*args, **kwargs)
 
     def asdict(self):
@@ -52,6 +52,7 @@ class SmartHomeStorageChargingAndUsageRaport(SmartHomeObject):
             "date_time_from": self.date_time_from.strftime("%Y-%m-%d %H:%M:%S"),
             "date_time_to": self.date_time_to.strftime("%Y-%m-%d %H:%M:%S"),
             "job_type": self.job_type,
+            "energy_use": self.energy_use,
         }
 
 

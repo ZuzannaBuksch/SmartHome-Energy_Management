@@ -800,5 +800,5 @@ exchange_home_setups_list = [
 
             }
         }
-    },
+    }
 ]  

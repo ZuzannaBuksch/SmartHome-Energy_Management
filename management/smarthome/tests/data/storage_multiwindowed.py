@@ -112,5 +112,112 @@ multiwindowed_photovoltaics_storage_home_setups_list =[
             },
         ]
      },
+     {
+        "storage_capacity": 4,
+        "storage_voltage": 27,
+        "initial_grid_surplus_value":  0.4, # 0.32
+        "initial_storage_charge_value": 0.1,
+        "windows": [
+            { # FIRST TIME WINDOW
+                "receiver_energy": 2,
+                "generator_energy": 0,
+                "sources": {
+                    "photovoltaics_used": 0,
+                    "grid_surplus_used": 0.32,
+                    "energy_storage_used": 0.1,
+                    "public_grid_used": 1.58, 
+                    },
+                "surpluses": {
+                    sources.GRID_SURPLUS : {
+                        "usage_type": EnergySurplusRaport.DEVICES_POWERING,
+                        "surplus_total_value": 0,
+                        "energy_loss": 0,
+                        "surplus_iteration_value_transfered": 0,
+                        },
+                    sources.ENERGY_STORAGE : {
+                        "iteration_energy_stored": 0,
+                        "total_energy_in_storage": 0,
+                    }
+
+                }
+            },
+            { #SECOND TIME WINDOW, 
+                "receiver_energy": 0.276,
+                "generator_energy": 0,
+                "sources": {
+                    "photovoltaics_used": 0,
+                    "grid_surplus_used": 0,
+                    "energy_storage_used": 0,
+                    "public_grid_used":  0.276, 
+                    },
+                "surpluses": {
+                    sources.GRID_SURPLUS : {
+                        "usage_type": EnergySurplusRaport.DEVICES_POWERING,
+                        "surplus_total_value": 0,
+                        "surplus_iteration_value_transfered": 0,
+                        "energy_loss": 0,
+                        },
+                    sources.ENERGY_STORAGE : {
+                        "iteration_energy_stored": 0,
+                        "total_energy_in_storage": 0,
+                    }
+
+                }
+            },
+        ]
+    },{
+        "storage_capacity": 4,
+        "storage_voltage": 27,
+        "initial_grid_surplus_value":  0.48, # 0.384
+        "initial_storage_charge_value":0.728,
+        "windows": [
+            { # FIRST TIME WINDOW
+                "receiver_energy": 0.0325,
+                "generator_energy": 0,
+                "sources": {
+                    "photovoltaics_used": 0,
+                    "grid_surplus_used": 0.384,
+                    "energy_storage_used": 0,
+                    "public_grid_used": 0, 
+                    },
+                "surpluses": {
+                    sources.GRID_SURPLUS : {
+                        "usage_type": EnergySurplusRaport.BATTERY_CHARGING,
+                        "surplus_total_value": 0,
+                        "energy_loss": 0,
+                        "surplus_iteration_value_transfered": 0,
+                        },
+                    sources.ENERGY_STORAGE : {
+                        "iteration_energy_stored": 0.3515,
+                        "total_energy_in_storage": 1.0795,
+                    }
+
+                }
+            },
+            { #SECOND TIME WINDOW, 
+                "receiver_energy": 0.037,
+                "generator_energy": 0,
+                "sources": {
+                    "photovoltaics_used": 0,
+                    "grid_surplus_used": 0,
+                    "energy_storage_used": 0.037,
+                    "public_grid_used": 0, 
+                    },
+                "surpluses": {
+                    sources.GRID_SURPLUS : {
+                        "usage_type": EnergySurplusRaport.BATTERY_CHARGING,
+                        "surplus_total_value": 0,
+                        "surplus_iteration_value_transfered": 0,
+                        "energy_loss": 0,
+                        },
+                    sources.ENERGY_STORAGE : {
+                        "iteration_energy_stored": 0,
+                        "total_energy_in_storage": 1.0425,
+                    }
+
+                }
+            }
+        ]
+    }
 ]
  

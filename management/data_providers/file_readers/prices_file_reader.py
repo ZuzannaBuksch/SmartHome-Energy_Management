@@ -1,4 +1,4 @@
 from .json_file_reader import JsonFileReader
 
 class PricesFileReader(JsonFileReader):
-    DATA_FILENAME = "energy_market.json"
+    DATA_FILENAME = "data_json/energy_market.json"
