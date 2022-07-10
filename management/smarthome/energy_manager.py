@@ -2,64 +2,109 @@ from collections import defaultdict
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict
 
-from .models import EnergySourcesRaport, EnergySurplusRaport
+from .models import EnergySourcesRaport, EnergyStorage
 
 from .constants import EnergySource as sources
 from .energy_calculators import sources_calculators
 from .energy_calculators import sources_calculators
-from .exchange_classifiers import ExchangeEnergyClassifier
+from .exchange_regressors import ExchangeEnergyRegressor
 from .price_manager import PriceManager
 
 
 class BuildingEnergyManager:
     _energy_sources_raport = None
     _energy_surplus_all_sources_data = None
-    _exchange_energy_classifier = None
+    _exchange_energy_regressor = None
     _price_manager = None
 
     def __init__(self, building, sources_calculators=sources_calculators):
         self._building = building
         self._sources_calculators = sources_calculators
-        self._exchange_energy_classifier = ExchangeEnergyClassifier()
+        self._exchange_energy_regressor = ExchangeEnergyRegressor()
         self._price_manager = PriceManager()
         self._initialize_calculators_for_energy_sources()
 
     def manage_energy_sources(self, energy_demand) -> Dict[str, Any]:
-        self._will_buy_exchange_energy = self._exchange_energy_classifier.decide_if_buy()
         self._energy_sources_raport = self._initialize_energy_sources_data()
         self._energy_surplus_all_sources_data = defaultdict(lambda: 0)
 
         energy_missing = self._use_energy_from_sources(energy_demand)
         self._store_remaining_energy(energy_missing)
 
+        self._set_up_exchange(energy_demand)
         return self._energy_sources_raport, self._energy_surplus_all_sources_data
 
-    def update_home_energy_data(self, start_date, end_date, energy_generated, storage_measurements):
+    def update_home_energy_data(self, start_date, end_date, energy_used, energy_generated, storage_measurements):
         self._datetime_from = start_date
         self._datetime_to = end_date
+        self._price_manager.update_date(start_date, end_date)
         self._sources_calculators[sources.PHOTOVOLTAICS].update_energy_generated(
             energy_generated
         )
         self._sources_calculators[sources.GRID_SURPLUS].update_current_datetime(end_date)
 
         available_storage = self._has_source(sources.ENERGY_STORAGE)
+        initial_storage_charge_value = 0.0
+        total_storage_capacity = 0.0
         if  available_storage:
+            try:
+                storage_device = EnergyStorage.objects.get(building = self._building)
+                total_storage_capacity = storage_device.capacity
+            except EnergyStorage.DoesNotExist:
+                pass
             available_storage.update_storage_params(start_date, end_date, storage_measurements)
+            initial_storage_charge_value = available_storage._get_device_current_capacity(storage_device)
 
         available_exchange = self._has_source(sources.ENERGY_EXCHANGE)
         if available_exchange:
             available_exchange.update_current_datetime(start_date, end_date)
 
+        initial_grid_surplus = self._sources_calculators[sources.GRID_SURPLUS]._get_current_grid_surplus()
+
+        self._exchange_energy_regressor.update_initial_energy_data(
+            {
+                "end_date": end_date,
+                "start_date": start_date,
+                "energy_generation": energy_generated, #how much energy was generated during timestamp
+                "energy_usage": abs(energy_used), #how much energy was used during timestamp
+                "initial_storage_charge_value": initial_storage_charge_value,
+                "initial_grid_surplus": initial_grid_surplus,
+                "total_storage_capacity": total_storage_capacity,
+            }
+        )
+
+
+    def _set_up_exchange(self, energy_usage):
+        available_exchange = self._has_source(sources.ENERGY_EXCHANGE)
+        if not available_exchange:
+            return
+        available_storage = self._has_source(sources.ENERGY_STORAGE)
+        storage_charge_value = 0.0
+        if  available_storage:
+            storage_device = EnergyStorage.objects.get(building = self._building)
+            storage_charge_value = available_storage._get_device_current_capacity(storage_device)
+        energy_surplus = self._sources_calculators[sources.GRID_SURPLUS]._get_current_grid_surplus()
+        public_grid_usage = self._energy_sources_raport.energy_sources[sources.PUBLIC_GRID].get("value", 0)
+
+        self._exchange_energy_regressor.update_energy_data(
+            {
+                "energy_usage": energy_usage, #how much energy was used during timestamp
+                "energy_storage": storage_charge_value, #how much energy is inside storage after timestamp
+                "surplus_data": energy_surplus, #how much energy is in surplus after timestamp
+                "public_grid_usage": public_grid_usage, #how much energy was needed from public grid during timestamp
+            }
+        )
+        self._exchange_energy_to_buy = self._exchange_energy_regressor.decide_energy_to_buy()
+        available_exchange.buy_exchange_energy(self._exchange_energy_to_buy)
+
+
     def _use_energy_from_sources(self, energy_demand):
         energy_missing = energy_demand
-        print("\n---------\n")
         for source, energy_calc in self._sources_calculators.items():
-            print(f"energy missing is {energy_missing}, we're using {source}")
             energy_price = self._price_manager.get_price_by_source(source)
             energy_used, energy_missing = energy_calc.calculate_energy_cover(
                 energy_missing
             )
-            print(f"we used {energy_used}, we're still missing  {energy_missing}")
 
             self._update_energy_sources_data(source, energy_used, energy_price)
         return energy_missing
@@ -69,7 +114,6 @@ class BuildingEnergyManager:
         
     def _has_source(self, source):
         return self._sources_calculators.get(source)  
-
 
     def _store_exchange_energy(self):
         exchange_calc = self._sources_calculators[sources.ENERGY_EXCHANGE]
@@ -95,16 +139,21 @@ class BuildingEnergyManager:
 
     def _store_remaining_energy(self, remaining_energy):
         grid_surplus = self._sources_calculators[sources.GRID_SURPLUS]
-        print("\nnow storing part")
         available_storage = self._sources_calculators.get(sources.ENERGY_STORAGE)
         if available_storage:
-            print(f"we have {remaining_energy} to store")
             if self._is_energy_surplus(remaining_energy):
                 remaining_energy = self._store_photovoltaics_surplus_into_energy_storage(remaining_energy)
-                print(f"and after storing from photovoltaics we still have {remaining_energy} to store")
-            if self._has_source(sources.ENERGY_EXCHANGE):
+            
+            available_exchange = self._has_source(sources.ENERGY_EXCHANGE)
+            if available_exchange:
                 self._store_exchange_energy()
-            if not self._will_buy_exchange_energy:
+
+            try:
+                available_exchange_energy = available_exchange.get_current_exchange_storage()
+            except AttributeError:
+                available_exchange_energy = False
+
+            if not available_exchange_energy:
                 self._store_grid_surplus_into_energy_storage()
 
         if self._is_energy_surplus(remaining_energy):
@@ -132,16 +181,13 @@ class BuildingEnergyManager:
         grid_surplus_val = grid_surplus._get_current_grid_surplus()
         if grid_surplus_val <= 0:
             return
-        print("we would like to store grid surplus into storage")
         storage_calc = self._sources_calculators.get(sources.ENERGY_STORAGE)
-        print(f"in grid surplus we have {grid_surplus_val}")
         remaining_grid_energy = storage_calc.store_energy_surplus(grid_surplus_val)
         stored_energy = grid_surplus_val - remaining_grid_energy
         grid_surplus.calculate_energy_cover(0-stored_energy, battery_charging=True)
         energy_price = self._price_manager.get_price_by_source(grid_source)
         self._update_energy_sources_data(grid_source, stored_energy, energy_price)
         self._update_energy_surpluses_data(sources.ENERGY_STORAGE, stored_energy)
-        print(f"so from grid surplus we stored {stored_energy} into storage so in grid still have {remaining_grid_energy}")
 
     def _store_exchange_remaining_energy_into_grid_surplus(self, remaining_energy):
         grid_surplus = self._sources_calculators.get(sources.GRID_SURPLUS)

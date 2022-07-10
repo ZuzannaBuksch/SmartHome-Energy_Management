@@ -1,13 +1,12 @@
 from collections import namedtuple
 from copy import deepcopy
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 from typing import List, OrderedDict
 from django.forms.models import model_to_dict
 from .energy_calculators import EnergyExchangeCalculator, EnergyStorageCalculator, GridSurplusEnergyCalculator, PhotovoltaicsEnergyCalculator, PublicGridEnergyCalculator
 
 from services.smart_home import SmartHomeBuilding, SmartHomeEnergyStorage
 
-from .energy_calculators import sources_calculators
 from .constants import EnergySource as sources
 from .energy_manager import BuildingEnergyManager
 from .models import (Device, EnergyDailyMeasurement, EnergyStorage, EnergyGenerator, ExchangeEnergyStorageRaport, PhotovoltaicsSufficiencyRaport,
@@ -58,6 +57,7 @@ class EnergyMeasurementsManager:
         home_energy_data = {
             "start_date": start_date, 
             "end_date": end_date,
+            "energy_used": self._get_energy_demand(),
             "energy_generated": self._get_energy_generated(),
             "storage_measurements": storage_measurements,
         }
@@ -77,9 +77,7 @@ class EnergyMeasurementsManager:
 
 
     def _get_home_energy_sources(self):
-        available_sources = [ 
-                (sources.PHOTOVOLTAICS, PhotovoltaicsEnergyCalculator),
-                ]
+        available_sources = [(sources.PHOTOVOLTAICS, PhotovoltaicsEnergyCalculator)]
         if self._building.use_exchange_energy:
             available_sources.append((sources.ENERGY_EXCHANGE, EnergyExchangeCalculator))
         available_sources.append((sources.GRID_SURPLUS, GridSurplusEnergyCalculator))
@@ -165,11 +163,14 @@ class EnergyMeasurementsManager:
         
         measurements=[]
         for device_data in storage_devices:
-            device = Device.objects.get(id=device_data.get("device_id"))
+            device = Device.objects.get(id=device_data.get("device"))
             assert device.name == device_data.get("name")
             assert device.building.user.id == device_data.get("user")
             smart_device = SmartHomeEnergyStorage({**model_to_dict(device), "type": device.type})
-            measurements+=smart_device.get_charge_state_raports(start_date, end_date)
+            raports = smart_device.get_charge_state_raports(start_date, end_date)
+            for raport in raports:
+                raport.device = device
+            measurements+=raports
         return measurements
 
     def _get_energy_measurements(self, start_date: datetime, end_date: datetime):

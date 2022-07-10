@@ -9,7 +9,6 @@ class GridSurplusEnergyCalculator(BaseEnergyCalculator):
         self._date_time = value
 
     def store_energy_surplus(self, energy):
-        print(f"we're transfering {energy} into grid surplus")
         self._create_new_grid_surplus(EnergySurplusRaport.TRANSFER, abs(energy))
         return 0
 
@@ -22,7 +21,6 @@ class GridSurplusEnergyCalculator(BaseEnergyCalculator):
 
         if current_surplus > 0:
             surplus_energy_used = min(current_surplus, energy_demand)
-            print(f"we have {current_surplus} and want {energy_demand} and min is {surplus_energy_used}")
             usage = EnergySurplusRaport.BATTERY_CHARGING if battery_charging else EnergySurplusRaport.DEVICES_POWERING
             self._create_new_grid_surplus(usage, surplus_energy_used)
         surplus_cover = surplus_energy_used - energy_demand
@@ -50,9 +48,6 @@ class GridSurplusEnergyCalculator(BaseEnergyCalculator):
                     building=self._building,
                     date_time=self._date_time,
                 )
-                print("-----inside creating raport=-----")
-                print(x.usage_type, x.value, x.date_time)
-                print("---------------------------------")
 
             except IntegrityError:
                 pass

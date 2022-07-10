@@ -1,4 +1,5 @@
 from .constants import EnergySource as sources
+from data_providers.exchange_prices_data_provider import ExchangePricesDataProvider
 
 class PriceManager:
     def __init__(self):
@@ -6,7 +7,11 @@ class PriceManager:
         self._photovoltaics_price = 0.0
         self._grid_surplus_price = 0.0
         self._energy_storage_price = 0.0
-        self._energy_exchange_price = 0.6
+        self._energy_exchange_price = None
+
+    def update_date(self, start_date, end_date):
+        exchange_prices = ExchangePricesDataProvider().get_data(start_date, end_date)
+        self._energy_exchange_price = exchange_prices.iloc[exchange_prices["datetime"].argmax()]["price"]
 
     def get_price_by_source(self, energy_source):
         return {

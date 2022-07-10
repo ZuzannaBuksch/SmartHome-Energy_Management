@@ -76,7 +76,7 @@ class EnergyReceiver(Device):
         smart_building.push_devices([smart_device])
 
 class EnergyGenerator(Device):
-    generation_power = models.FloatField()
+    generation_power = models.FloatField() #Wat
 
     def __str__(self):
         return f"Energy generating device: {str(self.id)} | name: {self.name}"

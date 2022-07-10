@@ -1,5 +1,5 @@
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from .file_readers import PricesFileReader
 
 class ExchangePricesDataProvider:

@@ -89,11 +89,11 @@ def generate_weather(fromTime, toTime):
         # if the forecast isnot correct
         if is_forecast == 5:
             # the weather is worst
-            forecast_value = energy_to_save * np.random.uniform(low=0.7, high=0.8)
-        elif is_forecast == 6:
-            forecast_value = energy_to_save * np.random.uniform(low=1.2, high=1.3)
+            forecast_value = energy_to_save * np.random.uniform(low=0.6, high=0.7)
+        elif is_forecast == 2:
+            forecast_value = energy_to_save * np.random.uniform(low=1.3, high=1.4)
         else:
-            forecast_value = energy_to_save
+            forecast_value = energy_to_save * np.random.uniform(low=0.97, high=1.03)
         forecast_value = round(forecast_value, 2)
         if fromTime > time or time > toTime:
             continue
@@ -102,7 +102,7 @@ def generate_weather(fromTime, toTime):
              "real": [energy_to_save], "forecast": [forecast_value], })
         table = table.append(frame, ignore_index=True)
         item = {
-            time: {"real": {"solar_radiation": energy_to_save}, "forecast": {"solar_radiation": forecast_value}}}
+            str(time): {"real": {"solar_radiation": energy_to_save}, "forecast": {"solar_radiation": forecast_value}}}
         to_json.update(item)
  
     return table
@@ -116,12 +116,10 @@ def generate_const_for_day(counting_to_peak, end_time, higher_cloudy_time, is_fo
     value_to_fluc = rising_value / counting_to_peak
     lower_cloudy_time = np.random.randint(-counting_to_peak, round(counting_to_peak / 3))
     higher_cloudy_time = np.random.randint(round(-counting_to_peak / 3), counting_to_peak)
-    # is_forecast = np.random.randint(1, 20)
-    is_forecast = np.random.randint(4, 8)
+    is_forecast = np.random.randint(1, 10)
     return counting_to_peak, higher_cloudy_time, is_forecast, lower_cloudy_time, rising_value, value_to_fluc
  
  
 def _getMeanTime(start_time, end_time):
     test = pd.date_range(start_time, end_time, freq="5t")
     return len(test)
- 

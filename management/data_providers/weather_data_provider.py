@@ -12,9 +12,7 @@ class WeatherDataProvider:
         to_date = lambda str_date: datetime.strptime(str_date,"%Y-%m-%d %H:%M:%S")
         weather_cols = [[to_date(k), v["real"]["solar_radiation"], v["forecast"]["solar_radiation"]] for k, v in weather_data.items()]
         weather_df = pd.DataFrame(weather_cols, columns=["datetime_to", "real", "forecast"])
-        
 
-        # earliest_datetime = start_datetime - timedelta(days=days_range)
 
         return weather_df[weather_df.datetime_to.between(start_datetime, end_datetime)]
 

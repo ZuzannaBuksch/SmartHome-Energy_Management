@@ -271,8 +271,9 @@
 #     @patch('smarthome.price_manager.PriceManager.get_price_by_source')
 #     @patch('smarthome.measurements_manager.EnergyMeasurementsManager._get_energy_measurements')
 #     @patch('smarthome.measurements_manager.EnergyMeasurementsManager._get_storage_measurements')
+#     @patch('smarthome.energy_manager.BuildingEnergyManager._set_up_exchange')
 #     @requests_mock.Mocker(kw="requests_mock")
-#     def test_calculate_energy_usage_for_1_hour_with_storage_and_exchange(self, mock_storage, mock_measurements,mock_pricer, home_setup, requests_mock):
+#     def test_calculate_energy_usage_for_1_hour_with_storage_and_exchange(self, mock_exchange, mock_storage, mock_measurements,mock_pricer, home_setup, requests_mock):
 #         """Check energy usage calculations in home with storage and energy exchange in single time window (59 minutes)"""
 #         requests_mock=self._mock_requests(requests_mock)
 #         db = self.setUpBuildingSinglePhotovoltaics(requests_mock)
@@ -292,6 +293,7 @@
 #         EnergySurplusRaport.objects.create(building = building, value=initial_grid_surplus_value, date_time = start_date, usage_type = EnergySurplusRaport.TRANSFER)
         
 #         mock_pricer.side_effect = self._get_price_by_source
+#         mock_exchange.return_value = None
 
 #         exchange_total_value = home_setup.get("exchange_total_value", 0)
 #         exchange_remaining_value = home_setup.get("exchange_remained_value",0)
@@ -401,8 +403,9 @@
 #     @patch('smarthome.price_manager.PriceManager.get_price_by_source')
 #     @patch('smarthome.measurements_manager.EnergyMeasurementsManager._get_energy_measurements')
 #     @patch('smarthome.measurements_manager.EnergyMeasurementsManager._get_storage_measurements')
+#     @patch('smarthome.energy_manager.BuildingEnergyManager._set_up_exchange')
 #     @requests_mock.Mocker(kw="requests_mock")
-#     def test_calculate_energy_usage_for_2_hour_with_storage_and_exchange_with_windows(self, mock_storage, mock_measurements,mock_pricer, home_setup, requests_mock):
+#     def test_calculate_energy_usage_for_2_hour_with_storage_and_exchange_with_windows(self, mock_exchange, mock_storage, mock_measurements,mock_pricer, home_setup, requests_mock):
 #         """Check energy usage calculations in home with storage and energy exchange in double time window (2*59 minutes)"""
 #         requests_mock=self._mock_requests(requests_mock)
 #         db = self.setUpBuildingSinglePhotovoltaics(requests_mock)
@@ -425,6 +428,7 @@
 #         EnergySurplusRaport.objects.create(building = building, value=initial_grid_surplus_value, date_time = start_date, usage_type = EnergySurplusRaport.TRANSFER)
         
 #         mock_pricer.side_effect = self._get_price_by_source
+#         mock_exchange.return_value = None
 
 #         exchange_total_value = home_setup.get("exchange_total_value", 0)
 #         exchange_initial_remained_value = home_setup.get("exchange_remained_value",0)
@@ -550,8 +554,9 @@
 #     @patch('smarthome.price_manager.PriceManager.get_price_by_source')
 #     @patch('smarthome.measurements_manager.EnergyMeasurementsManager._get_energy_measurements')
 #     @patch('smarthome.measurements_manager.EnergyMeasurementsManager._get_storage_measurements')
+#     @patch('smarthome.energy_manager.BuildingEnergyManager._set_up_exchange')
 #     @requests_mock.Mocker(kw="requests_mock")
-#     def test_calculate_energy_usage_for_2_hour_with_storage_and_energy_exchange_in_first_window(self, mock_storage, mock_measurements,mock_pricer, home_setup, requests_mock):
+#     def test_calculate_energy_usage_for_2_hour_with_storage_and_energy_exchange_in_first_window(self, mock_exchange, mock_storage, mock_measurements,mock_pricer, home_setup, requests_mock):
 #         """Check energy usage calculations in home with storage and energy exchange in double time window (2*59 minutes)"""
 #         requests_mock=self._mock_requests(requests_mock)
 #         db = self.setUpBuildingSinglePhotovoltaics(requests_mock)
@@ -574,6 +579,7 @@
 #         EnergySurplusRaport.objects.create(building = building, value=initial_grid_surplus_value, date_time = start_date, usage_type = EnergySurplusRaport.TRANSFER)
         
 #         mock_pricer.side_effect = self._get_price_by_source
+#         mock_exchange.return_value = None
 
 #         exchange_total_value = home_setup.get("exchange_total_value", 0)
 #         exchange_initial_remained_value = home_setup.get("exchange_remained_value",0)
@@ -699,8 +705,9 @@
 #     @patch('smarthome.price_manager.PriceManager.get_price_by_source')
 #     @patch('smarthome.measurements_manager.EnergyMeasurementsManager._get_energy_measurements')
 #     @patch('smarthome.measurements_manager.EnergyMeasurementsManager._get_storage_measurements')
+#     @patch('smarthome.energy_manager.BuildingEnergyManager._set_up_exchange')
 #     @requests_mock.Mocker(kw="requests_mock")
-#     def test_calculate_energy_usage_for_2_hour_with_storage_and_energy_exchange_in_second_window(self, mock_storage, mock_measurements,mock_pricer, home_setup, requests_mock):
+#     def test_calculate_energy_usage_for_2_hour_with_storage_and_energy_exchange_in_second_window(self, mock_exchange, mock_storage, mock_measurements,mock_pricer, home_setup, requests_mock):
 #         """Check energy usage calculations in home with storage and energy exchange in double time window (2*59 minutes)"""
 #         requests_mock=self._mock_requests(requests_mock)
 #         db = self.setUpBuildingSinglePhotovoltaics(requests_mock)
@@ -724,6 +731,7 @@
 #         EnergySurplusRaport.objects.create(building = building, value=initial_grid_surplus_value, date_time = start_date, usage_type = EnergySurplusRaport.TRANSFER)
         
 #         mock_pricer.side_effect = self._get_price_by_source
+#         mock_exchange.return_value = None
 
 #         exchange_total_value = home_setup.get("exchange_total_value", 0)
 #         exchange_initial_remained_value = home_setup.get("exchange_remained_value",0)
