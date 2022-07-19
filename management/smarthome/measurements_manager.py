@@ -2,15 +2,21 @@ from collections import namedtuple
 from copy import deepcopy
 from datetime import datetime, timedelta
 from typing import List, OrderedDict
-from django.forms.models import model_to_dict
-from .energy_calculators import EnergyExchangeCalculator, EnergyStorageCalculator, GridSurplusEnergyCalculator, PhotovoltaicsEnergyCalculator, PublicGridEnergyCalculator
 
+from django.forms.models import model_to_dict
 from services.smart_home import SmartHomeBuilding, SmartHomeEnergyStorage
 
 from .constants import EnergySource as sources
+from .energy_calculators import (EnergyExchangeCalculator,
+                                 EnergyStorageCalculator,
+                                 GridSurplusEnergyCalculator,
+                                 PhotovoltaicsEnergyCalculator,
+                                 PublicGridEnergyCalculator)
 from .energy_manager import BuildingEnergyManager
-from .models import (Device, EnergyDailyMeasurement, EnergyStorage, EnergyGenerator, ExchangeEnergyStorageRaport, PhotovoltaicsSufficiencyRaport,
-                     EnergyReceiver, EnergySourcesRaport)
+from .models import (Device, EnergyDailyMeasurement, EnergyGenerator,
+                     EnergyReceiver, EnergySourcesRaport, EnergyStorage,
+                     ExchangeEnergyStorageRaport,
+                     PhotovoltaicsSufficiencyRaport)
 
 
 class EnergyMeasurementsManager:
@@ -77,7 +83,8 @@ class EnergyMeasurementsManager:
 
 
     def _get_home_energy_sources(self):
-        available_sources = [(sources.PHOTOVOLTAICS, PhotovoltaicsEnergyCalculator)]
+        available_sources = []
+        available_sources.append((sources.PHOTOVOLTAICS, PhotovoltaicsEnergyCalculator))          
         if self._building.use_exchange_energy:
             available_sources.append((sources.ENERGY_EXCHANGE, EnergyExchangeCalculator))
         available_sources.append((sources.GRID_SURPLUS, GridSurplusEnergyCalculator))
@@ -157,15 +164,11 @@ class EnergyMeasurementsManager:
     def _get_storage_measurements(self, start_date: datetime, end_date: datetime):
         if not self._has_energy_storage():
             return []
-
         smart_building = SmartHomeBuilding(model_to_dict(self._building))
         storage_devices = smart_building.get_energy_storage(start_date, end_date)
-        
         measurements=[]
         for device_data in storage_devices:
-            device = Device.objects.get(id=device_data.get("device"))
-            assert device.name == device_data.get("name")
-            assert device.building.user.id == device_data.get("user")
+            device = Device.objects.get(id=device_data.get("device_id"))
             smart_device = SmartHomeEnergyStorage({**model_to_dict(device), "type": device.type})
             raports = smart_device.get_charge_state_raports(start_date, end_date)
             for raport in raports:

@@ -3,7 +3,8 @@ from datetime import datetime
 from typing import Any, Mapping
 
 from .smart_device import SmartHomeDevice
-from .smart_raport import SmartHomeChargeStateRaport, SmartHomeStorageChargingAndUsageRaport
+from .smart_raport import (SmartHomeChargeStateRaport,
+                           SmartHomeStorageChargingAndUsageRaport)
 
 
 class SmartHomeEnergyStorage(SmartHomeDevice):

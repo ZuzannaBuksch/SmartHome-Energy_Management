@@ -1,26 +1,30 @@
 import os
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "management.settings")
 
 
 import django
+
 django.setup()
 
-from datetime import datetime, timedelta, time
 import json
-import requests_mock
-from data_generators import generate_weather, energy_market
+from datetime import datetime, time, timedelta
+from random import randrange
+
+import numpy as np
 import pytest
+import requests_mock
 from mock import patch
+
+from data_generators import energy_market, generate_weather
 from services.smart_home import SmartHomeChargeStateRaport
 from smarthome.constants import EnergySource as sources
 from smarthome.measurements_manager import EnergyMeasurementsManager
 from smarthome.models import (Building, EnergyDailyMeasurement,
                               EnergyGenerator, EnergyReceiver, EnergyStorage,
-                            EnergySurplusRaport)
+                              EnergySurplusRaport)
 from users.models import User
-from random import randrange
-from datetime import timedelta, datetime
-import numpy as np
+
 
 def get_home_setup():
     return []
@@ -44,14 +48,14 @@ def get_home_setup(start_date):
         if time(0,0,0)<date_.time()<time(6,0,0):
             windows_energy_used.append(np.random.uniform(0.03, 0.1))
         else:
-            windows_energy_used.append(np.random.uniform(0.1, 1))
+            windows_energy_used.append(np.random.uniform(0.5, 2))
 
-    generation_power = np.random.randint(400,1800)
+    generation_power = 1500 #np.random.randint(400,1800)
 
-    total_storage_capacity = np.random.randint(3,10)
-    total_storage_voltage = np.random.randint(12, 28) #
-    initial_storage_charge_value = np.random.uniform(0,total_storage_capacity)
-    initial_grid_surplus_value = np.random.uniform(0,10)
+    total_storage_capacity = 4 #np.random.randint(3,10)
+    total_storage_voltage = 27 #np.random.randint(12, 28) #
+    initial_storage_charge_value = np.random.uniform(0,0.4)
+    initial_grid_surplus_value = np.random.uniform(0,1)
 
     return {
         "storage_capacity": total_storage_capacity,
@@ -125,8 +129,9 @@ def mock_requests(requests_mock, total_count):
 @patch('smarthome.measurements_manager.EnergyMeasurementsManager._get_storage_measurements')
 @requests_mock.Mocker(kw="requests_mock")
 def test_generate_2_windowed_data(mock_storage, mock_measurements, requests_mock):
-    total_count=500
+    total_count=200
     for i in range(total_count):
+        print(i)
         requests_mock=mock_requests(requests_mock, total_count)
         user = User.objects.create(email=f"defaultuser{i}@email.com", password="defaultpassword")
         building = Building.objects.create(user=user, name="house")
@@ -136,8 +141,8 @@ def test_generate_2_windowed_data(mock_storage, mock_measurements, requests_mock
         
         date_str = "%Y-%m-%d %H:%M:%S"
         
-        first_date = datetime(2022,1,1,0,0,0)
-        last_date = datetime(2022,12,31,21,59,59)
+        first_date = datetime(2022,5,1,0,0,0)
+        last_date = datetime(2022,5,31,20,59,59)
 
         start_date = round_time(random_date(first_date, last_date))
         end_date = start_date+timedelta(hours=3)

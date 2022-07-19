@@ -1,8 +1,9 @@
 from datetime import timedelta
-from ..models import ExchangeEnergyStorageRaport
-from .base_calc import BaseEnergyCalculator, is_energy_needed
-from ..price_manager import PriceManager
+
 from ..constants import EnergySource as sources
+from ..models import ExchangeEnergyStorageRaport
+from ..price_manager import PriceManager
+from .base_calc import BaseEnergyCalculator, is_energy_needed
 
 
 class EnergyExchangeCalculator(BaseEnergyCalculator):
@@ -34,9 +35,9 @@ class EnergyExchangeCalculator(BaseEnergyCalculator):
         return surplus_energy_used, surplus_cover
 
     def buy_exchange_energy(self, amount):
-        if amount<=0:
+        if float(amount)<=0:
             return
-        date_time_from = self._date_time_to+timedelta(hours=1)
+        date_time_from = self._date_time_to+timedelta(hours=1, minutes=59, seconds=59)
         date_time_to = date_time_from+timedelta(hours=1)
         pm = PriceManager()
         pm.update_date(self._date_time_from, self._date_time_to)

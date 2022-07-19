@@ -2,12 +2,10 @@ from collections import defaultdict
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict
 
-from .models import EnergySourcesRaport, EnergyStorage
-
 from .constants import EnergySource as sources
 from .energy_calculators import sources_calculators
-from .energy_calculators import sources_calculators
 from .exchange_regressors import ExchangeEnergyRegressor
+from .models import EnergyGenerator, EnergySourcesRaport, EnergyStorage
 from .price_manager import PriceManager
 
 
@@ -43,6 +41,16 @@ class BuildingEnergyManager:
         )
         self._sources_calculators[sources.GRID_SURPLUS].update_current_datetime(end_date)
 
+        avaliable_photovoltaics = self._has_source(sources.PHOTOVOLTAICS)
+        generation_power = 0.0
+        if avaliable_photovoltaics:
+            try:
+                energy_generators = EnergyGenerator.objects.filter(building=self._building)
+                for generator in energy_generators:
+                    generation_power += generator.generation_power
+            except EnergyGenerator.DoesNotExist:
+                pass
+
         available_storage = self._has_source(sources.ENERGY_STORAGE)
         initial_storage_charge_value = 0.0
         total_storage_capacity = 0.0
@@ -68,8 +76,9 @@ class BuildingEnergyManager:
                 "energy_generation": energy_generated, #how much energy was generated during timestamp
                 "energy_usage": abs(energy_used), #how much energy was used during timestamp
                 "initial_storage_charge_value": initial_storage_charge_value,
-                "initial_grid_surplus": initial_grid_surplus,
+                "initial_grid_surplus_value": initial_grid_surplus,
                 "total_storage_capacity": total_storage_capacity,
+                "generation_power" : generation_power,
             }
         )
 
@@ -91,10 +100,12 @@ class BuildingEnergyManager:
                 "energy_usage": energy_usage, #how much energy was used during timestamp
                 "energy_storage": storage_charge_value, #how much energy is inside storage after timestamp
                 "surplus_data": energy_surplus, #how much energy is in surplus after timestamp
-                "public_grid_usage": public_grid_usage, #how much energy was needed from public grid during timestamp
+                "public_grid_data": public_grid_usage, #how much energy was needed from public grid during timestamp
             }
         )
         self._exchange_energy_to_buy = self._exchange_energy_regressor.decide_energy_to_buy()
+
+        print('self._exchange_energy_to_buy: ', self._exchange_energy_to_buy)
         available_exchange.buy_exchange_energy(self._exchange_energy_to_buy)
 
 

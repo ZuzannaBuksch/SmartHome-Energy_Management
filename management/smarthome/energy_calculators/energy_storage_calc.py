@@ -1,9 +1,10 @@
+from collections import defaultdict
 from datetime import date, datetime, timedelta
 
-from services.smart_home.smart_raport import SmartHomeChargeStateRaport
-from .base_calc import BaseEnergyCalculator, is_energy_needed
-from collections import defaultdict
 from services.smart_home import JobType, SmartHomeEnergyStorage
+from services.smart_home.smart_raport import SmartHomeChargeStateRaport
+
+from .base_calc import BaseEnergyCalculator, is_energy_needed
 
 CURRENT_STORAGE_CHARGING_FACTOR = 0.1
 
