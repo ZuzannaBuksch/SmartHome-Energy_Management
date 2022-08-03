@@ -97,7 +97,7 @@ class BuildingEnergyManager:
 
         self._exchange_energy_regressor.update_energy_data(
             {
-                "energy_usage": energy_usage, #how much energy was used during timestamp
+                # "energy_usage": energy_usage, #how much energy was used during timestamp
                 "energy_storage": storage_charge_value, #how much energy is inside storage after timestamp
                 "surplus_data": energy_surplus, #how much energy is in surplus after timestamp
                 "public_grid_data": public_grid_usage, #how much energy was needed from public grid during timestamp
